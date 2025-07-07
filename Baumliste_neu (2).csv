@@ -1,0 +1,21 @@
+baumart;stadtklimafest;trockenheitsverträglich;salzverträglich;wurzeldruckverträglich;wuchsform;kronenform;maximale_endhöhe;ph_toleranz_min;ph_toleranz_max;standort_geeignet
+Acer campestre;True;True;True;True;mittel;rundlich;15;5.5;8.2;trocken bis feucht
+Carpinus betulus;True;True;False;True;mittel;rundlich;20;5.5;7.5;trocken bis feucht
+Tilia europaea;True;False;False;True;groß;rundlich;30;5.5;7.5;feucht
+Quercus robur;True;True;True;True;groß;rundlich;35;5.5;7.5;trocken bis feucht
+Platanus x acerifolia;True;False;False;True;groß;rundlich;30;6.0;7.5;feucht
+Fraxinus ornus;True;True;False;True;mittel;oval;10;6.0;7.5;trocken bis feucht
+Ostrya carpinifolia;True;True;True;True;mittel;rundlich;15;6.0;7.5;trocken
+Gleditsia triacanthos;True;True;False;True;mittel;offen;20;6.0;7.5;trocken bis feucht
+Pyrus salicifolia;True;True;False;True;mittel;offen;10;6.0;7.5;trocken
+Pinus sylvestris;True;True;True;True;groß;kegelförmig;30;5.5;7.5;trocken bis feucht
+Acer platanoides;True;True;False;True;mittel;säulenförmig;16;5.5;7.5;trocken bis feucht
+Alnus glutinosa;True;False;True;True;mittel;rundlich;20;5.5;7.5;feucht
+Quercus palustris;True;True;True;True;mittel;rundlich;25;5.5;7.5;feucht
+Sorbus latifolia;True;True;False;True;mittel;rundlich;15;5.5;7.5;trocken bis feucht
+Juglans regia;True;True;False;True;groß;rundlich;25;6.0;7.5;trocken bis feucht
+Pinus nigra;True;True;True;True;groß;kegelförmig;25;5.5;7.5;trocken bis feucht
+Celtis australis;True;True;False;True;mittel;offen;8;6.0;7.5;trocken
+Parrotia persica;True;True;False;True;mittel;oval;7;6.0;7.5;trocken bis feucht
+Betula pendula;True;False;False;True;mittel;rundlich;20;5.5;7.5;feucht
+Sorbus torminalis;True;True;False;True;mittel;rundlich;15;5.5;7.5;trocken bis feucht

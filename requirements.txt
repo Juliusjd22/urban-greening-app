@@ -1,0 +1,7 @@
+streamlit
+pandas
+geopandas
+osmnx
+matplotlib
+scikit-learn
+shapely
