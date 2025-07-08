@@ -18,6 +18,28 @@ st.title("🌿 Urban Greening Prototype")
 stadtname = st.text_input("🏙️ Gib den Namen des Stadtteils ein:", "Maxvorstadt, München")
 baumdateiname = "Baumliste_neu (2).csv"
 
+import streamlit as st
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import osmnx as ox
+from shapely.geometry import box
+from sklearn.preprocessing import MinMaxScaler
+from datetime import datetime, timedelta
+import requests
+import warnings
+import folium
+from streamlit_folium import st_folium
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+st.set_page_config(layout="wide")
+st.title("🌿 Urban Greening Prototype")
+
+stadtname = st.text_input("🏙️ Gib den Namen des Stadtteils ein:", "Maxvorstadt, München")
+baumdateiname = "Baumliste_neu (2).csv"
+
 def lade_temperaturverlauf(ort_name, tage=7):
     ort_gdf = ox.geocode_to_gdf(ort_name)
     center = ort_gdf.geometry.iloc[0].centroid
@@ -45,11 +67,42 @@ def lade_temperaturverlauf(ort_name, tage=7):
     })
     return df
 
+def lade_messstationen_temperaturen(ort_name):
+    ort_gdf = ox.geocode_to_gdf(ort_name)
+    center = ort_gdf.geometry.iloc[0].centroid
+    lat, lon = center.y, center.x
+
+    url = f"https://api.open-meteo.com/v1/stations?latitude={lat}&longitude={lon}&distance=15000"
+    r = requests.get(url)
+    if r.status_code != 200:
+        st.error("Messstationen konnten nicht abgerufen werden.")
+        return None
+
+    data = r.json()
+    stations = data.get("results", [])
+    if not stations:
+        st.warning("Keine Wetterstationen im Umkreis gefunden.")
+        return None
+
+    records = []
+    for s in stations:
+        temps = s.get("temperature_2m_mean")
+        if temps is not None:
+            records.append({
+                "id": s.get("id"),
+                "name": s.get("name"),
+                "lat": s.get("latitude"),
+                "lon": s.get("longitude"),
+                "avg_temp": temps.get("value"),
+                "std_temp": temps.get("standard_deviation")
+            })
+
+    return pd.DataFrame(records)
+
 if st.button("🔍 Analyse starten"):
     with st.spinner("Lade Gebiet und Daten..."):
         gebiet = ox.geocode_to_gdf(stadtname)
         polygon = gebiet.geometry.iloc[0]
-        print("Gebiet geladen:", polygon.bounds)
         utm_crs = gebiet.estimate_utm_crs()
         gebiet = gebiet.to_crs(utm_crs)
         area = gebiet.geometry.iloc[0].buffer(0)
@@ -64,9 +117,6 @@ if st.button("🔍 Analyse starten"):
         greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
         buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
         greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
-
-        print("Gebäudeanzahl:", len(buildings))
-        print("Grünflächenanzahl:", len(greens))
 
         if buildings.empty:
             st.error("⚠️ Keine Gebäudedaten gefunden. Bitte einen allgemeineren Ort wählen.")
@@ -113,6 +163,28 @@ if st.button("🔍 Analyse starten"):
         ax.set_title(f"Temperaturverlauf in {stadtname}")
         ax.grid(True)
         st.pyplot(fig)
+
+    st.subheader("📍 Wetterstationen im Umkreis inkl. Temperaturstatistik")
+    stations_df = lade_messstationen_temperaturen(stadtname)
+    if stations_df is not None:
+        st.dataframe(stations_df)
+
+        m = folium.Map(location=[stations_df["lat"].mean(), stations_df["lon"].mean()], zoom_start=12)
+        for _, row in stations_df.iterrows():
+            popup = f"<b>{row['name']}</b><br>Ø Temperatur: {row['avg_temp']} °C<br>σ: {row['std_temp']}"
+            folium.CircleMarker(
+                location=(row["lat"], row["lon"]),
+                radius=6,
+                fill=True,
+                color="blue",
+                fill_color="blue",
+                fill_opacity=0.7,
+                popup=popup
+            ).add_to(m)
+
+        st_folium(m, width=800, height=500)
+    else:
+        st.warning("Keine Daten für Wetterstationen verfügbar.")
 
     st.subheader("1️⃣ Gebäudedichte (Rot = dicht bebaut)")
     fig, ax = plt.subplots(figsize=(8, 8))
