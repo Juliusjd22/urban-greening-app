@@ -5,3 +5,4 @@ osmnx
 matplotlib
 scikit-learn
 shapely
+requests
