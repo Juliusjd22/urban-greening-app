@@ -6,3 +6,5 @@ matplotlib
 scikit-learn
 shapely
 requests
+folium
+streamlit-folium
