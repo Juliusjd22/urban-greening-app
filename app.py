@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import osmnx as ox
 from shapely.geometry import box
 from sklearn.preprocessing import MinMaxScaler
+from datetime import datetime, timedelta
+import requests
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -16,10 +18,38 @@ st.title("🌿 Urban Greening Prototype")
 stadtname = st.text_input("🏙️ Gib den Namen des Stadtteils ein:", "Maxvorstadt, München")
 baumdateiname = "Baumliste_neu (2).csv"
 
+def lade_temperaturverlauf(ort_name, tage=7):
+    ort_gdf = ox.geocode_to_gdf(ort_name)
+    center = ort_gdf.geometry.iloc[0].centroid
+    lat, lon = center.y, center.x
+
+    start_date = (datetime.utcnow() - timedelta(days=tage)).date()
+    end_date = datetime.utcnow().date()
+
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={lat}&longitude={lon}"
+        f"&start_date={start_date}&end_date={end_date}"
+        f"&hourly=temperature_2m&timezone=Europe%2FBerlin"
+    )
+
+    r = requests.get(url)
+    if r.status_code != 200:
+        st.error("Temperaturdaten konnten nicht abgerufen werden.")
+        return None
+
+    data = r.json()
+    df = pd.DataFrame({
+        "time": pd.to_datetime(data["hourly"]["time"]),
+        "temperature": data["hourly"]["temperature_2m"]
+    })
+    return df
+
 if st.button("🔍 Analyse starten"):
     with st.spinner("Lade Gebiet und Daten..."):
         gebiet = ox.geocode_to_gdf(stadtname)
         polygon = gebiet.geometry.iloc[0]
+        print("Gebiet geladen:", polygon.bounds)
         utm_crs = gebiet.estimate_utm_crs()
         gebiet = gebiet.to_crs(utm_crs)
         area = gebiet.geometry.iloc[0].buffer(0)
@@ -34,6 +64,13 @@ if st.button("🔍 Analyse starten"):
         greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
         buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
         greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
+
+        print("Gebäudeanzahl:", len(buildings))
+        print("Grünflächenanzahl:", len(greens))
+
+        if buildings.empty:
+            st.error("⚠️ Keine Gebäudedaten gefunden. Bitte einen allgemeineren Ort wählen.")
+            st.stop()
 
         streets = ox.graph_from_polygon(polygon, network_type="walk")
         edges = ox.graph_to_gdfs(streets, nodes=False).to_crs(utm_crs)
@@ -66,6 +103,16 @@ if st.button("🔍 Analyse starten"):
         grid["score_density_norm"] = grid["score_density"]
         grid["score_distance_norm"] = 1 - np.clip(grid["dist_to_green"] / max_dist, 0, 1)
         grid["score_total"] = 0.5 * grid["score_density_norm"] + 0.5 * grid["score_distance_norm"]
+
+    st.subheader("🌡 Temperaturverlauf der letzten 7 Tage")
+    temp_df = lade_temperaturverlauf(stadtname)
+    if temp_df is not None:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        temp_df.plot(x="time", y="temperature", ax=ax, legend=False)
+        ax.set_ylabel("°C")
+        ax.set_title(f"Temperaturverlauf in {stadtname}")
+        ax.grid(True)
+        st.pyplot(fig)
 
     st.subheader("1️⃣ Gebäudedichte (Rot = dicht bebaut)")
     fig, ax = plt.subplots(figsize=(8, 8))
