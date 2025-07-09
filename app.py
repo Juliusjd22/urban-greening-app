@@ -57,7 +57,7 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     plt.tight_layout()
     return fig
 
-def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km=1.0, grenzwert=20.0):
+def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resolution_km=1.0):
     geolocator = Nominatim(user_agent="hitze-check")
     try:
         location = geolocator.geocode(ort_name, timeout=10)
@@ -73,48 +73,65 @@ def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km
     lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111, resolution_km / 111)
     lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85, resolution_km / 85)
 
-    points = []
+    punkt_daten = []
+    ref_temp = None
+
     for lat in lats:
         for lon in lons:
-            url = (
-                f"https://archive-api.open-meteo.com/v1/archive?"
-                f"latitude={lat}&longitude={lon}"
-                f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
-                f"&daily=temperature_2m_max&timezone=auto"
-            )
             try:
+                url = (
+                    f"https://archive-api.open-meteo.com/v1/archive?"
+                    f"latitude={lat}&longitude={lon}"
+                    f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
+                    f"&daily=temperature_2m_max&timezone=auto"
+                )
                 r = requests.get(url, timeout=10)
                 if r.status_code != 200:
                     continue
-                data = r.json()
-                temps = data.get("daily", {}).get("temperature_2m_max", [])
+                temps = r.json().get("daily", {}).get("temperature_2m_max", [])
                 if not temps:
                     continue
                 avg_temp = round(np.mean(temps), 2)
-                if avg_temp >= grenzwert:
-                    points.append([lat, lon, avg_temp])
-            except Exception as e:
+
+                punkt_daten.append([lat, lon, avg_temp])
+
+                # Zentrum merken
+                if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
+                    ref_temp = avg_temp
+
+            except Exception:
                 continue
 
-    if not points:
+    if not punkt_daten or ref_temp is None:
+        st.warning("⚠️ Nicht genug Temperaturdaten oder Mittelpunktwert nicht verfügbar.")
         return None
 
+    # Temperaturdifferenz berechnen
+    differenzpunkte = [
+        [lat, lon, round(temp - ref_temp, 2)]
+        for lat, lon, temp in punkt_daten
+    ]
+
+    # Karte erstellen
     m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
     HeatMap(
-        [[p[0], p[1], p[2]] for p in points],
+        [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte],
         radius=18,
         blur=25,
         max_zoom=13,
-        gradient={0.0: "lightblue", 0.5: "orange", 0.8: "red", 1.0: "darkred"}
+        gradient={0.0: "green", 0.3: "lightyellow", 0.6: "orange", 1.0: "red"}
     ).add_to(m)
 
-    for lat, lon, temp in points:
+    # Labels hinzufügen
+    for lat, lon, diff in differenzpunkte:
+        sign = "+" if diff > 0 else ("−" if diff < 0 else "±")
         folium.Marker(
             [lat, lon],
-            icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{temp}°C</b></div>")
+            icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
         ).add_to(m)
 
     return m
+
 
 def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
     try:
