@@ -95,7 +95,6 @@ def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resoluti
 
                 punkt_daten.append([lat, lon, avg_temp])
 
-                # Zentrum merken
                 if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
                     ref_temp = avg_temp
 
@@ -106,13 +105,11 @@ def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resoluti
         st.warning("⚠️ Nicht genug Temperaturdaten oder Mittelpunktwert nicht verfügbar.")
         return None
 
-    # Temperaturdifferenz berechnen
     differenzpunkte = [
         [lat, lon, round(temp - ref_temp, 2)]
         for lat, lon, temp in punkt_daten
     ]
 
-    # Karte erstellen
     m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
     HeatMap(
         [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte],
@@ -122,7 +119,6 @@ def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resoluti
         gradient={0.0: "green", 0.3: "lightyellow", 0.6: "orange", 1.0: "red"}
     ).add_to(m)
 
-    # Labels hinzufügen
     for lat, lon, diff in differenzpunkte:
         sign = "+" if diff > 0 else ("−" if diff < 0 else "±")
         folium.Marker(
@@ -132,15 +128,10 @@ def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resoluti
 
     return m
 
-
 def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
-    try:
-        ort = ox.geocode_to_gdf(stadtteil_name)
-    except Exception as e:
-        st.warning("❌ Geokodierung fehlgeschlagen.")
-        return None
-
+    ort = ox.geocode_to_gdf(stadtteil_name)
     bbox = ort.total_bounds
+
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
     search = catalog.search(
         collections=["sentinel-2-l2a"],
@@ -259,8 +250,8 @@ def main():
     fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
     st.pyplot(fig2)
 
-    st.subheader("Temperatur Heatmap mit Temperaturwerten")
-    heatmap = heatmap_mit_temperaturlabels(ort_name=stadtteil)
+    st.subheader("Temperaturdifferenz Heatmap")
+    heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
     if heatmap:
         st.components.v1.html(heatmap._repr_html_(), height=600)
     else:
