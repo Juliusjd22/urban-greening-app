@@ -1,4 +1,4 @@
-frigis
+
 geopandas
 osmnx
 shapely
