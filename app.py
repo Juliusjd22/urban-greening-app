@@ -59,9 +59,16 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
 
 def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km=1.0, grenzwert=20.0):
     geolocator = Nominatim(user_agent="hitze-check")
-    location = geolocator.geocode(ort_name)
-    if not location:
+    try:
+        location = geolocator.geocode(ort_name, timeout=10)
+    except Exception as e:
+        st.error(f"🌍 Geokodierung fehlgeschlagen: {e}")
         return None
+
+    if not location:
+        st.warning("❗ Ort konnte nicht gefunden werden.")
+        return None
+
 
     lat0, lon0 = location.latitude, location.longitude
     lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111, resolution_km / 111)
