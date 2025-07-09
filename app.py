@@ -266,40 +266,43 @@ def main():
         st.components.v1.html(heatmap._repr_html_(), height=600)
     else:
         st.warning("Keine Temperaturdaten gefunden.")
+    
+    st.subheader("k-Means Clusteranalyse von Satellitendaten")
+    fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
+    st.pyplot(fig3)
+    
 
-    analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
-"""
-    st.subheader("Reflektivitätsanalyse (Sentinel-2)")
-    ort = ox.geocode_to_gdf(stadtteil)
-    bbox = ort.total_bounds
-    catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
-    search = catalog.search(
-        collections=["sentinel-2-l2a"],
-        bbox=bbox.tolist(),
-        datetime="2020-01-01/2024-12-31",
-        query={"eo:cloud_cover": {"lt": 5}}
-    )
-    items = list(search.get_items())
-    if items:
-        item = planetary_computer.sign(items[0])
-        stack = stackstac.stack([item], assets=["B04", "B03", "B02"], resolution=10, bounds_latlon=bbox.tolist(), epsg=32632)
-        rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
-        rgb = np.nan_to_num(rgb)
-        rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
+#    st.subheader("Reflektivitätsanalyse (Sentinel-2)")
+#    ort = ox.geocode_to_gdf(stadtteil)
+#    bbox = ort.total_bounds
+#    catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+#    search = catalog.search(
+#        collections=["sentinel-2-l2a"],
+#        bbox=bbox.tolist(),
+#        datetime="2020-01-01/2024-12-31",
+#        query={"eo:cloud_cover": {"lt": 5}}
+#    )
+#    items = list(search.get_items())
+#    if items:
+#        item = planetary_computer.sign(items[0])
+#        stack = stackstac.stack([item], assets=["B04", "B03", "B02"], resolution=10, bounds_latlon=bbox.tolist(), epsg=32632)
+#        rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
+#        rgb = np.nan_to_num(rgb)
+#        rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
 
-        h, w, _ = rgb_scaled.shape
-        pixels = rgb_scaled.reshape(-1, 3)
-        kmeans = KMeans(n_clusters=5, random_state=42).fit(pixels)
-        labels = kmeans.labels_
-        gray_values = np.linspace(0, 255, 5).astype(int)
-        gray_colors = np.stack([gray_values]*3, axis=1)
-        cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
+#        h, w, _ = rgb_scaled.shape
+#        pixels = rgb_scaled.reshape(-1, 3)
+#       kmeans = KMeans(n_clusters=5, random_state=42).fit(pixels)
+#        labels = kmeans.labels_
+#        gray_values = np.linspace(0, 255, 5).astype(int)
+#        gray_colors = np.stack([gray_values]*3, axis=1)
+#        cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
 
-        fig3, ax3 = plt.subplots(figsize=(6,6))
-        ax3.imshow(cluster_image)
-        ax3.axis("off")
-        st.pyplot(fig3)
-"""
+#        fig3, ax3 = plt.subplots(figsize=(6,6))
+#        ax3.imshow(cluster_image)
+#        ax3.axis("off")
+#        st.pyplot(fig3)
+
 
 if __name__ == "__main__":
     main()
