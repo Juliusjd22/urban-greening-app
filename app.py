@@ -1,4 +1,4 @@
-import frigis as fg
+import streamlit as st
 import geopandas as gpd
 import numpy as np
 import osmnx as ox
@@ -18,49 +18,51 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 def main():
-    stadtteil = fg.input.text("🏙️ Stadtteilname eingeben", default="Maxvorstadt, München")
-    fg.notify("📍 Lade Gebiet...")
-    gebiet = ox.geocode_to_gdf(stadtteil)
-    polygon = gebiet.geometry.iloc[0]
-    utm_crs = gebiet.estimate_utm_crs()
-    gebiet = gebiet.to_crs(utm_crs)
-    area = gebiet.geometry.iloc[0].buffer(0)
+    st.title("🌿 Begrünungs- & Hitzekarten-Analyse")
+    stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
 
-    # Gebäude und Grünflächen laden
-    tags_buildings = {"building": True}
-    tags_green = {
-        "leisure": ["park", "garden"],
-        "landuse": ["grass", "meadow", "forest"],
-        "natural": ["wood", "tree_row", "scrub"]
-    }
-    buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
-    greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+    if not stadtteil:
+        return
 
-    buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
-    greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
+    with st.spinner("📍 Lade Gebiet..."):
+        gebiet = ox.geocode_to_gdf(stadtteil)
+        polygon = gebiet.geometry.iloc[0]
+        utm_crs = gebiet.estimate_utm_crs()
+        gebiet = gebiet.to_crs(utm_crs)
+        area = gebiet.geometry.iloc[0].buffer(0)
 
-    # Raster erstellen
-    cell_size = 50
-    minx, miny, maxx, maxy = area.bounds
-    grid_cells = [
-        box(x, y, x + cell_size, y + cell_size)
-        for x in np.arange(minx, maxx, cell_size)
-        for y in np.arange(miny, maxy, cell_size)
-        if box(x, y, x + cell_size, y + cell_size).intersects(area)
-    ]
-    grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
+        tags_buildings = {"building": True}
+        tags_green = {
+            "leisure": ["park", "garden"],
+            "landuse": ["grass", "meadow", "forest"],
+            "natural": ["wood", "tree_row", "scrub"]
+        }
+        buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
+        greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+        buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
+        greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
-    # Gebäudedichte
-    fg.notify("🏗️ Analysiere Gebäudedichte...")
+        cell_size = 50
+        minx, miny, maxx, maxy = area.bounds
+        grid_cells = [
+            box(x, y, x + cell_size, y + cell_size)
+            for x in np.arange(minx, maxx, cell_size)
+            for y in np.arange(miny, maxy, cell_size)
+            if box(x, y, x + cell_size, y + cell_size).intersects(area)
+        ]
+        grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
+
+    st.subheader("🏗️ Gebäudedichte")
     def calc_building_ratio(cell):
         intersecting = buildings[buildings.intersects(cell)]
         return intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
 
     grid["building_ratio"] = grid.geometry.apply(calc_building_ratio)
-    fg.plot(grid.plot(column="building_ratio", cmap="Reds", edgecolor="grey", linewidth=0.2, legend=True).figure)
+    fig1, ax1 = plt.subplots()
+    grid.plot(ax=ax1, column="building_ratio", cmap="Reds", edgecolor="grey", linewidth=0.2, legend=True)
+    st.pyplot(fig1)
 
-    # Distanz zu Grünflächen
-    fg.notify("🌳 Berechne Grünflächendistanz...")
+    st.subheader("🌳 Distanz zu Grünflächen")
     def safe_distance(gdf, geom):
         if gdf.empty or geom.is_empty:
             return np.nan
@@ -68,10 +70,11 @@ def main():
 
     grid["dist_to_green"] = grid.geometry.apply(lambda g: safe_distance(greens, g))
     grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / 500, 0, 1)
-    fg.plot(grid.plot(column="score_distance_norm", cmap="Reds", edgecolor="grey", linewidth=0.2, legend=True).figure)
+    fig2, ax2 = plt.subplots()
+    grid.plot(ax=ax2, column="score_distance_norm", cmap="Reds", edgecolor="grey", linewidth=0.2, legend=True)
+    st.pyplot(fig2)
 
-    # Temperatur Heatmap
-    fg.notify("🌡️ Lade Temperaturdaten...")
+    st.subheader("🌡️ Temperatur Heatmap")
     geolocator = Nominatim(user_agent="frigis-app")
     location = geolocator.geocode(stadtteil)
     if location:
@@ -98,10 +101,9 @@ def main():
         if points:
             m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
             HeatMap([[p[0], p[1], p[2]] for p in points], radius=18, blur=25).add_to(m)
-            fg.map(m)
+            st.components.v1.html(m._repr_html_(), height=600)
 
-    # Reflektivität
-    fg.notify("🛰️ Analysiere Reflektivität mit Sentinel-2...")
+    st.subheader("🛰️ Reflektivitätsanalyse (Sentinel-2)")
     ort = ox.geocode_to_gdf(stadtteil)
     bbox = ort.total_bounds
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
@@ -127,9 +129,10 @@ def main():
         gray_colors = np.stack([gray_values]*3, axis=1)
         cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
 
-        fig, ax = plt.subplots(figsize=(6,6))
-        ax.imshow(cluster_image)
-        ax.axis("off")
-        fg.plot(fig)
+        fig3, ax3 = plt.subplots(figsize=(6,6))
+        ax3.imshow(cluster_image)
+        ax3.axis("off")
+        st.pyplot(fig3)
 
-fg.run(main)
+if __name__ == "__main__":
+    main()
