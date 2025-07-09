@@ -116,21 +116,30 @@ def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km
 
 def main():
     st.title("🌿 friGIS")
-    stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
+    
     st.markdown("""
-        by Philippa, Samuel, Julius
+        by Philippa, Samuel, Julius  
         Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
-        auf Basis welcher Daten wir 
+        auf Basis welcher Daten wir ...
     """)
 
-    if not stadtteil:
+    stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
+    starten = st.button("🔍 Analyse starten")
+
+    if not starten or not stadtteil:
         return
 
-    gebiet = ox.geocode_to_gdf(stadtteil)
+    try:
+        gebiet = ox.geocode_to_gdf(stadtteil)
+    except Exception as e:
+        st.error(f"📍 Gebiet konnte nicht geladen werden: {e}")
+        return
+
     polygon = gebiet.geometry.iloc[0]
     utm_crs = gebiet.estimate_utm_crs()
     gebiet = gebiet.to_crs(utm_crs)
     area = gebiet.geometry.iloc[0].buffer(0)
+
 
     tags_buildings = {"building": True}
     tags_green = {
