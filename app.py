@@ -108,8 +108,13 @@ def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km
     return m
 
 def main():
-    st.title("🌿 Begrünungs- & Hitzekarten-Analyse")
+    st.title("🌿 friGIS")
     stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
+    st.markdown("""
+        Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
+        auf Basis welcher Daten wir 
+    """)
+
     if not stadtteil:
         return
 
@@ -140,22 +145,22 @@ def main():
     ]
     grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
 
-    st.subheader("🏗️ Gebäudedichte")
+    st.subheader("Gebäudedichte")
     fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
     st.pyplot(fig1)
 
-    st.subheader("🌳 Distanz zu Grünflächen")
+    st.subheader("Distanz zu Grünflächen")
     fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
     st.pyplot(fig2)
 
-    st.subheader("🌡️ Temperatur Heatmap mit Temperaturwerten")
+    st.subheader("Temperatur Heatmap mit Temperaturwerten")
     heatmap = heatmap_mit_temperaturlabels(ort_name=stadtteil)
     if heatmap:
         st.components.v1.html(heatmap._repr_html_(), height=600)
     else:
         st.warning("Keine Temperaturdaten gefunden.")
 
-    st.subheader("🛰️ Reflektivitätsanalyse (Sentinel-2)")
+    st.subheader("Reflektivitätsanalyse (Sentinel-2)")
     ort = ox.geocode_to_gdf(stadtteil)
     bbox = ort.total_bounds
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
