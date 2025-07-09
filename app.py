@@ -113,6 +113,96 @@ def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km
         ).add_to(m)
 
     return m
+    
+def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
+    """
+    Reflektivitätsanalyse mit Graustufen-Farbpalette (schwarz = dunkel, weiß = hell) und erklärender Legende.
+    """
+    ort = ox.geocode_to_gdf(stadtteil_name)
+    bbox = ort.total_bounds
+
+    catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+    search = catalog.search(
+        collections=["sentinel-2-l2a"],
+        bbox=bbox.tolist(),
+        datetime=year_range,
+        query={"eo:cloud_cover": {"lt": 5}}
+    )
+    items = list(search.get_items())
+    if not items:
+        print("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
+        return
+
+    item = planetary_computer.sign(items[0])
+    print(f"✅ Sentinel-2 Bild gefunden: {item.id}")
+
+    stack = stackstac.stack(
+        [item],
+        assets=["B04", "B03", "B02"],
+        resolution=10,
+        bounds_latlon=bbox.tolist(),
+        epsg=32632
+    )
+    rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
+    rgb = np.nan_to_num(rgb)
+    rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
+
+    # Originalbild anzeigen
+    plt.figure(figsize=(6,6))
+    plt.imshow(rgb_scaled)
+    plt.title(f"Sentinel-2 RGB – {stadtteil_name}")
+    plt.axis("off")
+    plt.show()
+
+    h, w, _ = rgb_scaled.shape
+    pixels = rgb_scaled.reshape(-1, 3)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42).fit(pixels)
+    labels = kmeans.labels_
+
+    # Reflektivität je Cluster
+    cluster_info = []
+    for i in range(n_clusters):
+        cluster_pixels = pixels[labels == i]
+        if len(cluster_pixels) == 0:
+            cluster_info.append((i, 0, "Keine Daten"))
+            continue
+        helligkeit = cluster_pixels.mean(axis=1).mean() / 255
+        beschreibung = (
+            "🌞 Sehr hell (hohe Reflektivität)" if helligkeit > 0.75 else
+            "🔆 Hell (moderat reflektierend)" if helligkeit > 0.5 else
+            "🌥️ Mittel (neutral)" if helligkeit > 0.35 else
+            "🌡️ Dunkel (hohes Aufheizungspotenzial)"
+        )
+        cluster_info.append((i, round(helligkeit, 2), beschreibung))
+
+    # Graustufenfarben generieren (schwarz → weiß)
+    gray_values = np.linspace(0, 255, n_clusters).astype(int)
+    gray_colors = np.stack([gray_values]*3, axis=1)  # shape (n_clusters, 3)
+    cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
+
+    # Clusterbild mit Graustufen
+    plt.figure(figsize=(6,6))
+    plt.imshow(cluster_image)
+    plt.title(f"Reflektivitäts-Cluster (Graustufen) – {n_clusters} Klassen")
+    plt.axis("off")
+
+    # Legende
+    legend_elements = [
+        Patch(facecolor=gray_colors[i]/255, edgecolor='black',
+              label=f"Cluster {i}: {cluster_info[i][2]} ({cluster_info[i][1]*100:.0f}%)")
+        for i in range(n_clusters)
+    ]
+    plt.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.12),
+               ncol=1, frameon=True, fontsize="small")
+    plt.tight_layout()
+    plt.show()
+
+    # Tabelle
+    print(f"\n📊 Reflektivitätsbewertung für: {stadtteil_name}")
+    print("Cluster | Reflektivität | Bewertung")
+    print("----------------------------------------------")
+    for i, h, b in cluster_info:
+        print(f"{i:^7} | {h:^14} | {b}")
 
 def main():
     st.title("🌿 friGIS")
@@ -177,6 +267,8 @@ def main():
     else:
         st.warning("Keine Temperaturdaten gefunden.")
 
+    analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
+"""
     st.subheader("Reflektivitätsanalyse (Sentinel-2)")
     ort = ox.geocode_to_gdf(stadtteil)
     bbox = ort.total_bounds
@@ -207,6 +299,7 @@ def main():
         ax3.imshow(cluster_image)
         ax3.axis("off")
         st.pyplot(fig3)
+"""
 
 if __name__ == "__main__":
     main()
