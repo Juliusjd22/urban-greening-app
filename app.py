@@ -14,6 +14,7 @@ import stackstac
 import planetary_computer
 from pystac_client import Client
 from matplotlib.patches import Patch
+import time
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -57,7 +58,7 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     plt.tight_layout()
     return fig
 
-def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resolution_km=1.0):
+def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
     geolocator = Nominatim(user_agent="hitze-check")
     try:
         location = geolocator.geocode(ort_name, timeout=10)
@@ -70,35 +71,40 @@ def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=3, resoluti
         return None
 
     lat0, lon0 = location.latitude, location.longitude
-    lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111, resolution_km / 111)
-    lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85, resolution_km / 85)
+    lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111 + 1e-6, resolution_km / 111)
+    lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85 + 1e-6, resolution_km / 85)
 
     punkt_daten = []
     ref_temp = None
 
     for lat in lats:
         for lon in lons:
-            try:
-                url = (
-                    f"https://archive-api.open-meteo.com/v1/archive?"
-                    f"latitude={lat}&longitude={lon}"
-                    f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
-                    f"&daily=temperature_2m_max&timezone=auto"
-                )
-                r = requests.get(url, timeout=10)
-                if r.status_code != 200:
-                    continue
-                temps = r.json().get("daily", {}).get("temperature_2m_max", [])
-                if not temps:
-                    continue
-                avg_temp = round(np.mean(temps), 2)
+            success = False
+            for _ in range(3):  # Retry max 3 times
+                try:
+                    url = (
+                        f"https://archive-api.open-meteo.com/v1/archive?"
+                        f"latitude={lat}&longitude={lon}"
+                        f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
+                        f"&daily=temperature_2m_max&timezone=auto"
+                    )
+                    r = requests.get(url, timeout=10)
+                    if r.status_code != 200:
+                        time.sleep(1)
+                        continue
+                    temps = r.json().get("daily", {}).get("temperature_2m_max", [])
+                    if not temps:
+                        break
+                    avg_temp = round(np.mean(temps), 2)
+                    punkt_daten.append([lat, lon, avg_temp])
 
-                punkt_daten.append([lat, lon, avg_temp])
-
-                if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
-                    ref_temp = avg_temp
-
-            except Exception:
+                    if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
+                        ref_temp = avg_temp
+                    success = True
+                    break
+                except Exception:
+                    time.sleep(1)
+            if not success:
                 continue
 
     if not punkt_daten or ref_temp is None:
