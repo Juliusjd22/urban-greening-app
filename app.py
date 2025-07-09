@@ -57,67 +57,7 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     plt.tight_layout()
     return fig
 
-def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km=1.0, grenzwert=20.0):
-    geolocator = Nominatim(user_agent="hitze-check")
-    try:
-        location = geolocator.geocode(ort_name, timeout=10)
-    except Exception as e:
-        st.error(f"🌍 Geokodierung fehlgeschlagen: {e}")
-        return None
-
-    if not location:
-        st.warning("❗ Ort konnte nicht gefunden werden.")
-        return None
-
-
-    lat0, lon0 = location.latitude, location.longitude
-    lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111, resolution_km / 111)
-    lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85, resolution_km / 85)
-
-    points = []
-    for lat in lats:
-        for lon in lons:
-            url = (
-                f"https://archive-api.open-meteo.com/v1/archive?"
-                f"latitude={lat}&longitude={lon}"
-                f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
-                f"&daily=temperature_2m_max&timezone=auto"
-            )
-            r = requests.get(url)
-            if r.status_code != 200:
-                continue
-            data = r.json()
-            temps = data.get("daily", {}).get("temperature_2m_max", [])
-            if not temps:
-                continue
-            avg_temp = round(np.mean(temps), 2)
-            if avg_temp >= grenzwert:
-                points.append([lat, lon, avg_temp])
-
-    if not points:
-        return None
-
-    m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
-    HeatMap(
-        [[p[0], p[1], p[2]] for p in points],
-        radius=18,
-        blur=25,
-        max_zoom=13,
-        gradient={0.0: "lightblue", 0.5: "orange", 0.8: "red", 1.0: "darkred"}
-    ).add_to(m)
-
-    for lat, lon, temp in points:
-        folium.Marker(
-            [lat, lon],
-            icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{temp}°C</b></div>")
-        ).add_to(m)
-
-    return m
-    
 def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
-    """
-    Reflektivitätsanalyse mit Graustufen-Farbpalette (schwarz = dunkel, weiß = hell) und erklärender Legende.
-    """
     ort = ox.geocode_to_gdf(stadtteil_name)
     bbox = ort.total_bounds
 
@@ -130,36 +70,27 @@ def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_rang
     )
     items = list(search.get_items())
     if not items:
-        print("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
-        return
+        st.warning("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
+        return None
 
     item = planetary_computer.sign(items[0])
-    print(f"✅ Sentinel-2 Bild gefunden: {item.id}")
-
+    utm_crs = ort.estimate_utm_crs().to_epsg()
     stack = stackstac.stack(
         [item],
         assets=["B04", "B03", "B02"],
         resolution=10,
         bounds_latlon=bbox.tolist(),
-        epsg=32632
+        epsg=utm_crs
     )
     rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
     rgb = np.nan_to_num(rgb)
     rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
-
-    # Originalbild anzeigen
-    plt.figure(figsize=(6,6))
-    plt.imshow(rgb_scaled)
-    plt.title(f"Sentinel-2 RGB – {stadtteil_name}")
-    plt.axis("off")
-    plt.show()
 
     h, w, _ = rgb_scaled.shape
     pixels = rgb_scaled.reshape(-1, 3)
     kmeans = KMeans(n_clusters=n_clusters, random_state=42).fit(pixels)
     labels = kmeans.labels_
 
-    # Reflektivität je Cluster
     cluster_info = []
     for i in range(n_clusters):
         cluster_pixels = pixels[labels == i]
@@ -175,38 +106,27 @@ def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_rang
         )
         cluster_info.append((i, round(helligkeit, 2), beschreibung))
 
-    # Graustufenfarben generieren (schwarz → weiß)
     gray_values = np.linspace(0, 255, n_clusters).astype(int)
-    gray_colors = np.stack([gray_values]*3, axis=1)  # shape (n_clusters, 3)
+    gray_colors = np.stack([gray_values]*3, axis=1)
     cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
 
-    # Clusterbild mit Graustufen
-    plt.figure(figsize=(6,6))
-    plt.imshow(cluster_image)
-    plt.title(f"Reflektivitäts-Cluster (Graustufen) – {n_clusters} Klassen")
-    plt.axis("off")
+    fig, ax = plt.subplots(figsize=(6,6))
+    ax.imshow(cluster_image)
+    ax.axis("off")
 
-    # Legende
     legend_elements = [
         Patch(facecolor=gray_colors[i]/255, edgecolor='black',
               label=f"Cluster {i}: {cluster_info[i][2]} ({cluster_info[i][1]*100:.0f}%)")
         for i in range(n_clusters)
     ]
-    plt.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.12),
-               ncol=1, frameon=True, fontsize="small")
+    ax.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.12),
+              ncol=1, frameon=True, fontsize="small")
     plt.tight_layout()
-    plt.show()
-
-    # Tabelle
-    print(f"\n📊 Reflektivitätsbewertung für: {stadtteil_name}")
-    print("Cluster | Reflektivität | Bewertung")
-    print("----------------------------------------------")
-    for i, h, b in cluster_info:
-        print(f"{i:^7} | {h:^14} | {b}")
+    return fig
 
 def main():
     st.title("🌿 friGIS")
-    
+
     st.markdown("""
         by Philippa, Samuel, Julius  
         Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
@@ -229,7 +149,6 @@ def main():
     utm_crs = gebiet.estimate_utm_crs()
     gebiet = gebiet.to_crs(utm_crs)
     area = gebiet.geometry.iloc[0].buffer(0)
-
 
     tags_buildings = {"building": True}
     tags_green = {
@@ -266,43 +185,11 @@ def main():
         st.components.v1.html(heatmap._repr_html_(), height=600)
     else:
         st.warning("Keine Temperaturdaten gefunden.")
-    
+
     st.subheader("k-Means Clusteranalyse von Satellitendaten")
     fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
-    st.pyplot(fig3)
-    
-
-#    st.subheader("Reflektivitätsanalyse (Sentinel-2)")
-#    ort = ox.geocode_to_gdf(stadtteil)
-#    bbox = ort.total_bounds
-#    catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
-#    search = catalog.search(
-#        collections=["sentinel-2-l2a"],
-#        bbox=bbox.tolist(),
-#        datetime="2020-01-01/2024-12-31",
-#        query={"eo:cloud_cover": {"lt": 5}}
-#    )
-#    items = list(search.get_items())
-#    if items:
-#        item = planetary_computer.sign(items[0])
-#        stack = stackstac.stack([item], assets=["B04", "B03", "B02"], resolution=10, bounds_latlon=bbox.tolist(), epsg=32632)
-#        rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
-#        rgb = np.nan_to_num(rgb)
-#        rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
-
-#        h, w, _ = rgb_scaled.shape
-#        pixels = rgb_scaled.reshape(-1, 3)
-#       kmeans = KMeans(n_clusters=5, random_state=42).fit(pixels)
-#        labels = kmeans.labels_
-#        gray_values = np.linspace(0, 255, 5).astype(int)
-#        gray_colors = np.stack([gray_values]*3, axis=1)
-#        cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
-
-#        fig3, ax3 = plt.subplots(figsize=(6,6))
-#        ax3.imshow(cluster_image)
-#        ax3.axis("off")
-#        st.pyplot(fig3)
-
+    if fig3:
+        st.pyplot(fig3)
 
 if __name__ == "__main__":
     main()
