@@ -17,91 +17,143 @@ from matplotlib.patches import Patch
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-def main():
-    st.title("🌿 Begrünungs- & Hitzekarten-Analyse")
-    stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
-
-    if not stadtteil:
-        return
-
-    with st.spinner("📍 Lade Gebiet..."):
-        gebiet = ox.geocode_to_gdf(stadtteil)
-        polygon = gebiet.geometry.iloc[0]
-        utm_crs = gebiet.estimate_utm_crs()
-        gebiet = gebiet.to_crs(utm_crs)
-        area = gebiet.geometry.iloc[0].buffer(0)
-
-        tags_buildings = {"building": True}
-        tags_green = {
-            "leisure": ["park", "garden"],
-            "landuse": ["grass", "meadow", "forest"],
-            "natural": ["wood", "tree_row", "scrub"]
-        }
-        buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
-        greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
-        buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
-        greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
-
-        cell_size = 50
-        minx, miny, maxx, maxy = area.bounds
-        grid_cells = [
-            box(x, y, x + cell_size, y + cell_size)
-            for x in np.arange(minx, maxx, cell_size)
-            for y in np.arange(miny, maxy, cell_size)
-            if box(x, y, x + cell_size, y + cell_size).intersects(area)
-        ]
-        grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
-
-    st.subheader("🏗️ Gebäudedichte")
+def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
     def calc_building_ratio(cell):
         intersecting = buildings[buildings.intersects(cell)]
         return intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
 
     grid["building_ratio"] = grid.geometry.apply(calc_building_ratio)
-    fig1, ax1 = plt.subplots()
-    grid.plot(ax=ax1, column="building_ratio", cmap="Reds", edgecolor="grey", linewidth=0.2, legend=True)
-    st.pyplot(fig1)
 
-    st.subheader("🌳 Distanz zu Grünflächen")
+    fig, ax = plt.subplots(figsize=(8, 8))
+    grid.plot(ax=ax, column="building_ratio", cmap="Reds", legend=True,
+              edgecolor="grey", linewidth=0.2)
+    buildings.plot(ax=ax, color="lightgrey", edgecolor="black", alpha=0.5)
+    gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
+    ax.set_title("1️⃣ Gebäudedichte (Rot = dicht bebaut)")
+    ax.axis("equal")
+    plt.tight_layout()
+    return fig
+
+def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
     def safe_distance(gdf, geom):
         if gdf.empty or geom.is_empty:
             return np.nan
         return gdf.geometry.distance(geom.centroid).min()
 
     grid["dist_to_green"] = grid.geometry.apply(lambda g: safe_distance(greens, g))
-    grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / 500, 0, 1)
-    fig2, ax2 = plt.subplots()
-    grid.plot(ax=ax2, column="score_distance_norm", cmap="Reds", edgecolor="grey", linewidth=0.2, legend=True)
+    grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
+
+    cmap = plt.cm.Reds
+    norm = mcolors.Normalize(vmin=0, vmax=1)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    grid.plot(ax=ax, column="score_distance_norm", cmap=cmap, norm=norm,
+              edgecolor="grey", linewidth=0.2, legend=True,
+              legend_kwds={"label": "Entfernung zu Grün (Rot = weit entfernt)"})
+    greens.plot(ax=ax, color="green", alpha=0.5, edgecolor="darkgreen")
+    gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
+    ax.set_title("2️⃣ Distanz zu Grünflächen (Rot = weit entfernt, Grün = vorhanden)")
+    ax.axis("equal")
+    plt.tight_layout()
+    return fig
+
+def heatmap_mit_temperaturlabels(ort_name, jahr=2022, radius_km=3, resolution_km=1.0, grenzwert=20.0):
+    geolocator = Nominatim(user_agent="hitze-check")
+    location = geolocator.geocode(ort_name)
+    if not location:
+        return None
+
+    lat0, lon0 = location.latitude, location.longitude
+    lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111, resolution_km / 111)
+    lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85, resolution_km / 85)
+
+    points = []
+    for lat in lats:
+        for lon in lons:
+            url = (
+                f"https://archive-api.open-meteo.com/v1/archive?"
+                f"latitude={lat}&longitude={lon}"
+                f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
+                f"&daily=temperature_2m_max&timezone=auto"
+            )
+            r = requests.get(url)
+            if r.status_code != 200:
+                continue
+            data = r.json()
+            temps = data.get("daily", {}).get("temperature_2m_max", [])
+            if not temps:
+                continue
+            avg_temp = round(np.mean(temps), 2)
+            if avg_temp >= grenzwert:
+                points.append([lat, lon, avg_temp])
+
+    if not points:
+        return None
+
+    m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
+    HeatMap(
+        [[p[0], p[1], p[2]] for p in points],
+        radius=18,
+        blur=25,
+        max_zoom=13,
+        gradient={0.0: "lightblue", 0.5: "orange", 0.8: "red", 1.0: "darkred"}
+    ).add_to(m)
+
+    for lat, lon, temp in points:
+        folium.Marker(
+            [lat, lon],
+            icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{temp}°C</b></div>")
+        ).add_to(m)
+
+    return m
+
+def main():
+    st.title("🌿 Begrünungs- & Hitzekarten-Analyse")
+    stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
+    if not stadtteil:
+        return
+
+    gebiet = ox.geocode_to_gdf(stadtteil)
+    polygon = gebiet.geometry.iloc[0]
+    utm_crs = gebiet.estimate_utm_crs()
+    gebiet = gebiet.to_crs(utm_crs)
+    area = gebiet.geometry.iloc[0].buffer(0)
+
+    tags_buildings = {"building": True}
+    tags_green = {
+        "leisure": ["park", "garden"],
+        "landuse": ["grass", "meadow", "forest"],
+        "natural": ["wood", "tree_row", "scrub"]
+    }
+    buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
+    greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+    buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
+    greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
+
+    cell_size = 50
+    minx, miny, maxx, maxy = area.bounds
+    grid_cells = [
+        box(x, y, x + cell_size, y + cell_size)
+        for x in np.arange(minx, maxx, cell_size)
+        for y in np.arange(miny, maxy, cell_size)
+        if box(x, y, x + cell_size, y + cell_size).intersects(area)
+    ]
+    grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
+
+    st.subheader("🏗️ Gebäudedichte")
+    fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
+    st.pyplot(fig1)
+
+    st.subheader("🌳 Distanz zu Grünflächen")
+    fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
     st.pyplot(fig2)
 
-    st.subheader("🌡️ Temperatur Heatmap")
-    geolocator = Nominatim(user_agent="frigis-app")
-    location = geolocator.geocode(stadtteil)
-    if location:
-        lat0, lon0 = location.latitude, location.longitude
-        lats = np.arange(lat0 - 3/111, lat0 + 3/111, 1.0/111)
-        lons = np.arange(lon0 - 3/85, lon0 + 3/85, 1.0/85)
-        points = []
-        for lat in lats:
-            for lon in lons:
-                url = (
-                    f"https://archive-api.open-meteo.com/v1/archive?"
-                    f"latitude={lat}&longitude={lon}"
-                    f"&start_date=2022-06-01&end_date=2022-08-31"
-                    f"&daily=temperature_2m_max&timezone=auto"
-                )
-                r = requests.get(url)
-                if r.status_code != 200:
-                    continue
-                temps = r.json().get("daily", {}).get("temperature_2m_max", [])
-                if temps:
-                    avg_temp = round(np.mean(temps), 2)
-                    if avg_temp >= 20.0:
-                        points.append([lat, lon, avg_temp])
-        if points:
-            m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
-            HeatMap([[p[0], p[1], p[2]] for p in points], radius=18, blur=25).add_to(m)
-            st.components.v1.html(m._repr_html_(), height=600)
+    st.subheader("🌡️ Temperatur Heatmap mit Temperaturwerten")
+    heatmap = heatmap_mit_temperaturlabels(ort_name=stadtteil)
+    if heatmap:
+        st.components.v1.html(heatmap._repr_html_(), height=600)
+    else:
+        st.warning("Keine Temperaturdaten gefunden.")
 
     st.subheader("🛰️ Reflektivitätsanalyse (Sentinel-2)")
     ort = ox.geocode_to_gdf(stadtteil)
