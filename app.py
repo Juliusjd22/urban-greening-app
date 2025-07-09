@@ -111,6 +111,7 @@ def main():
     st.title("🌿 friGIS")
     stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
     st.markdown("""
+        by Philippa, Samuel, Julius
         Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
         auf Basis welcher Daten wir 
     """)
