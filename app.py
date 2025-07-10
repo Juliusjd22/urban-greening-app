@@ -19,11 +19,15 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
+    progress = st.progress(0, text="🏗️ Gebäudedichte wird berechnet...")
+
     def calc_building_ratio(cell):
         intersecting = buildings[buildings.intersects(cell)]
         return intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
 
     grid["building_ratio"] = grid.geometry.apply(calc_building_ratio)
+    progress.progress(1.0, text="🏗️ Gebäudedichte fertig berechnet.")
+    progress.empty()
 
     fig, ax = plt.subplots(figsize=(8, 8))
     grid.plot(ax=ax, column="building_ratio", cmap="Reds", legend=True,
@@ -36,6 +40,8 @@ def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
     return fig
 
 def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
+    progress = st.progress(0, text="🌳 Entfernung zu Grünflächen wird berechnet...")
+
     def safe_distance(gdf, geom):
         if gdf.empty or geom.is_empty:
             return np.nan
@@ -43,6 +49,9 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
 
     grid["dist_to_green"] = grid.geometry.apply(lambda g: safe_distance(greens, g))
     grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
+
+    progress.progress(1.0, text="🌳 Entfernung zu Grünflächen fertig berechnet.")
+    progress.empty()
 
     cmap = plt.cm.Reds
     norm = mcolors.Normalize(vmin=0, vmax=1)
@@ -57,6 +66,7 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     ax.axis("equal")
     plt.tight_layout()
     return fig
+
 
 def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
     geolocator = Nominatim(user_agent="hitze-check")
@@ -150,7 +160,7 @@ def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_rang
         collections=["sentinel-2-l2a"],
         bbox=bbox.tolist(),
         datetime=year_range,
-        query={"eo:cloud_cover": {"lt": 5}}
+        query={"eo:cloud_cover": {"lt": 20}}
     )
     items = list(search.get_items())
     if not items:
