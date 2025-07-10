@@ -915,8 +915,7 @@ elif page == "🚀 What We Plan Next":
     """)
     
     st.markdown("---")
-    st.caption("🌱 **Mission:** Democratizing access to science-based urban cooling solutions for cities worldwide, 
-              contributing to global climate resilience and improved quality of life for urban populations.")
+    st.caption("🌱 **Mission:** Democratizing access to science-based urban cooling solutions for cities worldwide, contributing to global climate resilience and improved quality of life for urban populations.")
 
 elif page == "🐞 Report a Bug":
     st.title("🐞 Report a Bug or Issue")
