@@ -103,6 +103,7 @@ elif page == "🏠 Main App":
         st.image("logo.png", width=60)
     with col2:
         st.markdown("<h1 style='margin-bottom: 0;'>friGIS</h1>", unsafe_allow_html=True)
+    
     def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
         progress = st.progress(0, text="🏗️ Calculating building density...")
         intersecting_geometries = buildings.sindex
@@ -149,6 +150,7 @@ elif page == "🏠 Main App":
         ax.axis("equal")
         plt.tight_layout()
         return fig
+
     def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
         geolocator = Nominatim(user_agent="hitze-check")
         try:
@@ -304,103 +306,105 @@ elif page == "🏠 Main App":
         progress.empty()
         return fig
     
-   def main():
-    st.title("🌿 friGIS")
+    def main():
+        st.title("🌿 friGIS")
 
-    st.markdown("""
-        by Philippa, Samuel, Julius  
-        Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
-        auf Basis welcher Daten wir ...
-    """)
+        st.markdown("""
+            by Philippa, Samuel, Julius  
+            Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
+            auf Basis welcher Daten wir ...
+        """)
 
-    # Session State initialisieren
-    if 'analysis_started' not in st.session_state:
-        st.session_state.analysis_started = False
-    if 'analysis_complete' not in st.session_state:
-        st.session_state.analysis_complete = False
+        # Session State initialisieren
+        if 'analysis_started' not in st.session_state:
+            st.session_state.analysis_started = False
+        if 'analysis_complete' not in st.session_state:
+            st.session_state.analysis_complete = False
 
-    stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
+        stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
 
-    # Button Logic mit Session State
-    col1, col2 = st.columns([1, 1])
+        # Button Logic mit Session State
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            if st.button("🔍 Analyse starten", disabled=st.session_state.analysis_started):
+                if stadtteil:
+                    st.session_state.analysis_started = True
+                    st.session_state.analysis_complete = False
+
+        with col2:
+            if st.session_state.analysis_complete:
+                if st.button("🔄 Neue Analyse"):
+                    st.session_state.analysis_started = False
+                    st.session_state.analysis_complete = False
+                    st.rerun()
+
+        # Analyse nur ausführen wenn gestartet
+        if not st.session_state.analysis_started or not stadtteil:
+            return
+
+        # Status anzeigen
+        if not st.session_state.analysis_complete:
+            st.info("🔄 Analyse läuft...")
+
+        try:
+            gebiet = ox.geocode_to_gdf(stadtteil)
+        except Exception as e:
+            st.error(f"📍 Gebiet konnte nicht geladen werden: {e}")
+            st.session_state.analysis_started = False
+            return
+
+        polygon = gebiet.geometry.iloc[0]
+        utm_crs = gebiet.estimate_utm_crs()
+        gebiet = gebiet.to_crs(utm_crs)
+        area = gebiet.geometry.iloc[0].buffer(0)
+
+        tags_buildings = {"building": True}
+        tags_green = {
+            "leisure": ["park", "garden"],
+            "landuse": ["grass", "meadow", "forest"],
+            "natural": ["wood", "tree_row", "scrub"]
+        }
+        buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
+        greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+        buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
+        greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
+
+        cell_size = 50
+        minx, miny, maxx, maxy = area.bounds
+        grid_cells = [
+            box(x, y, x + cell_size, y + cell_size)
+            for x in np.arange(minx, maxx, cell_size)
+            for y in np.arange(miny, maxy, cell_size)
+            if box(x, y, x + cell_size, y + cell_size).intersects(area)
+        ]
+        grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
+
+        st.subheader("Gebäudedichte")
+        fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
+        st.pyplot(fig1)
+
+        st.subheader("Distanz zu Grünflächen")
+        fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
+        st.pyplot(fig2)
+
+        st.subheader("Temperaturdifferenz Heatmap")
+        heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
+        if heatmap:
+            st.components.v1.html(heatmap._repr_html_(), height=600)
+        else:
+            st.warning("Keine Temperaturdaten gefunden.")
+
+        st.subheader("k-Means Clusteranalyse von Satellitendaten")
+        fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
+        if fig3:
+            st.pyplot(fig3)
+
+        # Am Ende der Analyse
+        st.session_state.analysis_complete = True
+        st.success("✅ Analyse abgeschlossen! Du kannst jetzt eine neue Analyse starten.")
     
-    with col1:
-        if st.button("🔍 Analyse starten", disabled=st.session_state.analysis_started):
-            if stadtteil:
-                st.session_state.analysis_started = True
-                st.session_state.analysis_complete = False
-
-    with col2:
-        if st.session_state.analysis_complete:
-            if st.button("🔄 Neue Analyse"):
-                st.session_state.analysis_started = False
-                st.session_state.analysis_complete = False
-                st.rerun()
-
-    # Analyse nur ausführen wenn gestartet
-    if not st.session_state.analysis_started or not stadtteil:
-        return
-
-    # Status anzeigen
-    if not st.session_state.analysis_complete:
-        st.info("🔄 Analyse läuft...")
-
-    try:
-        gebiet = ox.geocode_to_gdf(stadtteil)
-    except Exception as e:
-        st.error(f"📍 Gebiet konnte nicht geladen werden: {e}")
-        st.session_state.analysis_started = False
-        return
-
-    polygon = gebiet.geometry.iloc[0]
-    utm_crs = gebiet.estimate_utm_crs()
-    gebiet = gebiet.to_crs(utm_crs)
-    area = gebiet.geometry.iloc[0].buffer(0)
-
-    tags_buildings = {"building": True}
-    tags_green = {
-        "leisure": ["park", "garden"],
-        "landuse": ["grass", "meadow", "forest"],
-        "natural": ["wood", "tree_row", "scrub"]
-    }
-    buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
-    greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
-    buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
-    greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
-
-    cell_size = 50
-    minx, miny, maxx, maxy = area.bounds
-    grid_cells = [
-        box(x, y, x + cell_size, y + cell_size)
-        for x in np.arange(minx, maxx, cell_size)
-        for y in np.arange(miny, maxy, cell_size)
-        if box(x, y, x + cell_size, y + cell_size).intersects(area)
-    ]
-    grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
-
-    st.subheader("Gebäudedichte")
-    fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
-    st.pyplot(fig1)
-
-    st.subheader("Distanz zu Grünflächen")
-    fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
-    st.pyplot(fig2)
-
-    st.subheader("Temperaturdifferenz Heatmap")
-    heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
-    if heatmap:
-        st.components.v1.html(heatmap._repr_html_(), height=600)
-    else:
-        st.warning("Keine Temperaturdaten gefunden.")
-
-    st.subheader("k-Means Clusteranalyse von Satellitendaten")
-    fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
-    if fig3:
-        st.pyplot(fig3)
-
-    # Am Ende der Analyse
-    st.session_state.analysis_complete = True
-    st.success("✅ Analyse abgeschlossen! Du kannst jetzt eine neue Analyse starten.")
-    
-if __name__ == "__main__":
+    # Call main function when on the main app page
     main()
+
+# Note: The if __name__ == "__main__": block is not needed for Streamlit apps
