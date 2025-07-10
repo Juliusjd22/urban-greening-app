@@ -912,22 +912,22 @@ elif page == "🏠 Main App":
         st.markdown("<h1 style='margin-bottom: 0;'>friGIS</h1>", unsafe_allow_html=True)
     
     def load_osm_data_with_retry(polygon, tags, max_retries=3):
-        """OSM Daten mit Retry-Logik laden"""
+        """Load OSM data with retry logic"""
         for attempt in range(max_retries):
             try:
                 data = ox.features_from_polygon(polygon, tags=tags)
                 return data
             except Exception as e:
                 if attempt < max_retries - 1:
-                    st.warning(f"OSM Versuch {attempt + 1} fehlgeschlagen, versuche erneut...")
+                    st.warning(f"OSM attempt {attempt + 1} failed, retrying...")
                     time.sleep(2 ** attempt)  # Exponential backoff
                 else:
-                    st.error(f"OSM Daten konnten nach {max_retries} Versuchen nicht geladen werden: {e}")
-                    return gpd.GeoDataFrame()  # Leeres GeoDataFrame zurückgeben
+                    st.error(f"OSM data could not be loaded after {max_retries} attempts: {e}")
+                    return gpd.GeoDataFrame()  # Return empty GeoDataFrame
     
     def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
         if buildings.empty:
-            st.warning("⚠️ Keine Gebäudedaten verfügbar - Standardwerte verwendet")
+            st.warning("⚠️ No building data available - using default values")
             grid["building_ratio"] = 0.1  # Standardwert
         else:
             progress = st.progress(0, text="🏗️ Calculating building density...")
@@ -964,7 +964,7 @@ elif page == "🏠 Main App":
 
     def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
         if greens.empty:
-            st.warning("⚠️ Keine Grünflächendaten verfügbar - Standardwerte verwendet")
+            st.warning("⚠️ No green space data available - using default values")
             grid["dist_to_green"] = max_dist
             grid["score_distance_norm"] = 1.0
         else:
@@ -984,7 +984,7 @@ elif page == "🏠 Main App":
                 progress.progress(1.0, text="🌳 Distance to green calculated.")
                 progress.empty()
             except Exception as e:
-                st.warning(f"Fehler bei Grünflächenanalyse: {e}")
+                st.warning(f"Error in green space analysis: {e}")
                 grid["dist_to_green"] = max_dist
                 grid["score_distance_norm"] = 1.0
         
@@ -1009,16 +1009,16 @@ elif page == "🏠 Main App":
         return fig
 
     def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=2.0, resolution_km=0.7):
-        """ERWEITERTE Temperaturdaten - MEHR Punkte"""
+        """EXTENDED Temperature data - MORE points"""
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
             results = geocoder.geocode(ort_name, no_annotations=1)
         except Exception as e:
-            st.error(f"🌍 Geokodierung fehlgeschlagen: {e}")
+            st.error(f"🌍 Geocoding failed: {e}")
             return None
 
         if not results:
-            st.warning("❗ Ort konnte nicht gefunden werden.")
+            st.warning("❗ Location could not be found.")
             return None
     
         lat0, lon0 = results[0]['geometry']['lat'], results[0]['geometry']['lng']
@@ -1028,7 +1028,7 @@ elif page == "🏠 Main App":
         punkt_daten = []
         ref_temp = None
         total_points = len(lats) * len(lons)
-        progress = st.progress(0, text=f"🔄 Temperaturdaten werden geladen... ({total_points} Punkte)")
+        progress = st.progress(0, text=f"🔄 Loading temperature data... ({total_points} points)")
         count = 0
         
         def fetch_temperature(lat, lon):
@@ -1052,7 +1052,7 @@ elif page == "🏠 Main App":
                     time.sleep(0.5)
             return lat, lon, None
         
-        # Erhöhte Parallelität für OPTIMIERTE Anzahl Temperaturpunkte
+        # Optimized number of parallel temperature requests
         coords = [(lat, lon) for lat in lats for lon in lons]
         with ThreadPoolExecutor(max_workers=6) as executor:  # Reduziert von 8 auf 6
             futures = [executor.submit(fetch_temperature, lat, lon) for lat, lon in coords]
@@ -1067,24 +1067,24 @@ elif page == "🏠 Main App":
                 
                 count += 1
                 progress.progress(min(count / total_points, 1.0), 
-                               text=f"🔄 Temperaturdaten werden geladen... ({count}/{total_points})")
+                               text=f"🔄 Loading temperature data... ({count}/{total_points})")
     
         progress.empty()
     
         if not punkt_daten:
-            st.warning("⚠️ Nicht genug Temperaturdaten verfügbar.")
+            st.warning("⚠️ Not enough temperature data available.")
             return None
             
         if ref_temp is None:
             ref_temp = np.mean([temp for _, _, temp in punkt_daten])
-            st.info("ℹ️ Mittelpunktwert geschätzt")
+            st.info("ℹ️ Reference temperature estimated")
     
         differenzpunkte = [
             [lat, lon, round(temp - ref_temp, 2)]
             for lat, lon, temp in punkt_daten
         ]
     
-        # Verbesserte Heatmap mit MEHR Datenpunkten
+        # Enhanced Heatmap with MORE data points
         m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
         HeatMap(
             [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte],
@@ -1101,7 +1101,7 @@ elif page == "🏠 Main App":
                 icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
             ).add_to(m)
     
-        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (OPTIMIERT: {radius_km}km Radius, {resolution_km}km Auflösung = ~{len(punkt_daten)} Messpunkte)!")
+        st.success(f"✅ {len(punkt_daten)} temperature points loaded (OPTIMIZED: {radius_km}km radius, {resolution_km}km resolution = ~{len(punkt_daten)} measurement points)!")
         return m
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
@@ -1217,20 +1217,20 @@ elif page == "🏠 Main App":
         if 'analysis_complete' not in st.session_state:
             st.session_state.analysis_complete = False
 
-        stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
+        stadtteil = st.text_input("🏙️ Enter district name", value="Maxvorstadt, München")
 
         # Button Logic mit Session State
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            if st.button("🔍 Analyse starten", disabled=st.session_state.analysis_started):
+            if st.button("🔍 Start Analysis", disabled=st.session_state.analysis_started):
                 if stadtteil:
                     st.session_state.analysis_started = True
                     st.session_state.analysis_complete = False
 
         with col2:
             if st.session_state.analysis_complete:
-                if st.button("🔄 Neue Analyse"):
+                if st.button("🔄 New Analysis"):
                     st.session_state.analysis_started = False
                     st.session_state.analysis_complete = False
                     st.rerun()
@@ -1241,17 +1241,17 @@ elif page == "🏠 Main App":
 
         # Status anzeigen
         if not st.session_state.analysis_complete:
-            st.info("🔄 Analyse läuft...")
+            st.info("🔄 Analysis running...")
 
         try:
             gebiet = geocode_to_gdf_with_fallback(stadtteil)
             if gebiet is None:
-                st.error("📍 Gebiet konnte nicht gefunden werden.")
+                st.error("📍 Area could not be found.")
                 st.session_state.analysis_started = False
                 return
                 
         except Exception as e:
-            st.error(f"📍 Unerwarteter Fehler: {e}")
+            st.error(f"📍 Unexpected error: {e}")
             st.session_state.analysis_started = False
             return
 
@@ -1260,7 +1260,7 @@ elif page == "🏠 Main App":
         gebiet = gebiet.to_crs(utm_crs)
         area = gebiet.geometry.iloc[0].buffer(0)
 
-        # OSM Daten mit Retry-Logik
+        # OSM data with retry logic
         tags_buildings = {"building": True}
         tags_green = {
             "leisure": ["park", "garden"],
@@ -1268,11 +1268,11 @@ elif page == "🏠 Main App":
             "natural": ["wood", "tree_row", "scrub"]
         }
         
-        st.info("📡 Lade OSM-Daten...")
+        st.info("📡 Loading OSM data...")
         buildings = load_osm_data_with_retry(polygon, tags_buildings)
         greens = load_osm_data_with_retry(polygon, tags_green)
         
-        # Daten bereinigen
+        # Data cleaning
         if not buildings.empty:
             buildings = buildings.to_crs(utm_crs)
             buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
@@ -1280,8 +1280,8 @@ elif page == "🏠 Main App":
             greens = greens.to_crs(utm_crs)
             greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
-        # Grid erstellen - HÖHERE Auflösung
-        cell_size = 40  # Reduziert von 50 auf 40 für höhere Auflösung
+        # Create grid - HIGHER resolution
+        cell_size = 40  # Reduced from 50 to 40 for higher resolution
         minx, miny, maxx, maxy = area.bounds
         grid_cells = [
             box(x, y, x + cell_size, y + cell_size)
@@ -1291,43 +1291,43 @@ elif page == "🏠 Main App":
         ]
         grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
 
-        # Analysen durchführen (mit Fehlerbehandlung)
+        # Perform analyses (with error handling)
         try:
-            st.subheader("Gebäudedichte")
+            st.subheader("Building Density")
             fig1 = gebaeudedichte_analysieren_und_plotten(grid.copy(), buildings, gebiet)
             st.pyplot(fig1)
             plt.close(fig1)  # Memory-Management
         except Exception as e:
-            st.error(f"Gebäudedichte-Analyse fehlgeschlagen: {e}")
+            st.error(f"Building density analysis failed: {e}")
 
         try:
-            st.subheader("Distanz zu Grünflächen")
+            st.subheader("Distance to Green Spaces")
             fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid.copy(), greens, gebiet)
             st.pyplot(fig2)
             plt.close(fig2)  # Memory-Management
         except Exception as e:
-            st.error(f"Grünflächen-Analyse fehlgeschlagen: {e}")
+            st.error(f"Green space analysis failed: {e}")
 
         try:
-            st.subheader("Temperaturdifferenz Heatmap")
+            st.subheader("Temperature Difference Heatmap")
             heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
             if heatmap:
                 st.components.v1.html(heatmap._repr_html_(), height=600)
         except Exception as e:
-            st.error(f"Temperatur-Analyse fehlgeschlagen: {e}")
+            st.error(f"Temperature analysis failed: {e}")
 
         try:
-            st.subheader("k-Means Clusteranalyse von Satellitendaten")
+            st.subheader("k-Means Cluster Analysis of Satellite Data")
             fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
             if fig3:
                 st.pyplot(fig3)
                 plt.close(fig3)  # Memory-Management
         except Exception as e:
-            st.error(f"Satellitendaten-Analyse fehlgeschlagen: {e}")
+            st.error(f"Satellite data analysis failed: {e}")
 
-        # Am Ende der Analyse
+        # At the end of analysis
         st.session_state.analysis_complete = True
-        st.success("✅ Analyse abgeschlossen! Du kannst jetzt eine neue Analyse starten.")
+        st.success("✅ Analysis completed! You can now start a new analysis.")
     
     # Call main function when on the main app page
     main()
