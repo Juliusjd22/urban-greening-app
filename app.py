@@ -44,11 +44,11 @@ def geocode_to_gdf_with_fallback(location_name):
                 # Kleineres Gebiet für erste zwei Analysen
                 center_lon = (minx + maxx) / 2
                 center_lat = (miny + maxy) / 2
-                offset = 0.0035  # Etwas kleiner: ca. 350m Radius
+                offset = 0.006  # Größerer Radius: ca. 600m
                 minx, miny, maxx, maxy = center_lon - offset, center_lat - offset, center_lon + offset, center_lat + offset
             else:
                 lat, lon = result['geometry']['lat'], result['geometry']['lng']
-                offset = 0.0035  # Etwas kleiner: ca. 350m Radius
+                offset = 0.006  # Größerer Radius: ca. 600m
                 minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
             
             polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
@@ -239,7 +239,7 @@ elif page == "🏠 Main App":
         plt.tight_layout()
         return fig
 
-    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=2.4, resolution_km=0.45):
+    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=2.0, resolution_km=0.7):
         """ERWEITERTE Temperaturdaten - MEHR Punkte"""
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
@@ -283,9 +283,9 @@ elif page == "🏠 Main App":
                     time.sleep(0.5)
             return lat, lon, None
         
-        # Erhöhte Parallelität für DEUTLICH MEHR Temperaturpunkte
+        # Erhöhte Parallelität für OPTIMIERTE Anzahl Temperaturpunkte
         coords = [(lat, lon) for lat in lats for lon in lons]
-        with ThreadPoolExecutor(max_workers=8) as executor:  # Erhöht von 5 auf 8
+        with ThreadPoolExecutor(max_workers=6) as executor:  # Reduziert von 8 auf 6
             futures = [executor.submit(fetch_temperature, lat, lon) for lat, lon in coords]
             
             for future in as_completed(futures):
@@ -332,7 +332,7 @@ elif page == "🏠 Main App":
                 icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
             ).add_to(m)
     
-        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (ERWEITERT: {radius_km}km Radius, {resolution_km}km Auflösung = ~{len(punkt_daten)} Messpunkte)!")
+        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (OPTIMIERT: {radius_km}km Radius, {resolution_km}km Auflösung = ~{len(punkt_daten)} Messpunkte)!")
         return m
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
@@ -344,8 +344,20 @@ elif page == "🏠 Main App":
                 st.warning("❌ Gebiet konnte nicht gefunden werden.")
                 progress.empty()
                 return None
-                
-            bbox = gebiet.total_bounds
+            
+            # VIEL größerer Radius für k-Means Satellitendaten
+            bounds = gebiet.total_bounds
+            center_lon = (bounds[0] + bounds[2]) / 2
+            center_lat = (bounds[1] + bounds[3]) / 2
+            large_offset = 0.015  # Viel größerer Radius: ca. 1.5km statt 350m
+            large_polygon = Polygon([
+                (center_lon - large_offset, center_lat - large_offset),
+                (center_lon + large_offset, center_lat - large_offset), 
+                (center_lon + large_offset, center_lat + large_offset),
+                (center_lon - large_offset, center_lat + large_offset)
+            ])
+            large_gebiet = gpd.GeoDataFrame({'geometry': [large_polygon]}, crs='EPSG:4326')
+            bbox = large_gebiet.total_bounds
             progress.progress(0.1, text="🔍 Suche nach Sentinel-2 Daten...")
         
             catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
