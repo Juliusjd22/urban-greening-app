@@ -2,7 +2,7 @@ import streamlit as st
 import geopandas as gpd
 import numpy as np
 import osmnx as ox
-from shapely.geometry import box
+from shapely.geometry import box, Polygon
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import requests
@@ -27,6 +27,44 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 
 # OpenCageData API Key
 OPENCAGE_API_KEY = "bb1eb77da8504268a285bc3a82daa835"
+
+def geocode_to_gdf_opencage(location_name, api_key):
+    """
+    Geocodiert einen Ortsnamen mit OpenCageData und erstellt ein GeoDataFrame mit einem Bounding Box Polygon
+    """
+    geocoder = OpenCageGeocode(api_key)
+    try:
+        results = geocoder.geocode(location_name, no_annotations=1)
+        if not results:
+            return None
+        
+        result = results[0]
+        
+        # Verwende bounds falls verfügbar, sonst erstelle eine kleine Bounding Box um den Punkt
+        if 'bounds' in result:
+            bounds = result['bounds']
+            minx, miny = bounds['southwest']['lng'], bounds['southwest']['lat']
+            maxx, maxy = bounds['northeast']['lng'], bounds['northeast']['lat']
+        else:
+            # Fallback: Erstelle eine kleine Box um den Punkt (ca. 1km Radius)
+            lat, lon = result['geometry']['lat'], result['geometry']['lng']
+            offset = 0.01  # ca. 1km
+            minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
+        
+        # Erstelle Polygon aus Bounding Box
+        polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
+        
+        # Erstelle GeoDataFrame
+        gdf = gpd.GeoDataFrame(
+            {'geometry': [polygon], 'name': [location_name]}, 
+            crs='EPSG:4326'
+        )
+        
+        return gdf
+        
+    except Exception as e:
+        st.error(f"Geocoding fehlgeschlagen: {e}")
+        return None
 
 # Seitenleiste mit Navigation
 page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
@@ -249,8 +287,15 @@ elif page == "🏠 Main App":
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
         progress = st.progress(0, text="🔍 Satellitendaten werden gesucht...")
-        ort = ox.geocode_to_gdf(stadtteil_name)
-        bbox = ort.total_bounds
+        
+        # Verwende OpenCageData für Geocoding
+        gebiet = geocode_to_gdf_opencage(stadtteil_name, OPENCAGE_API_KEY)
+        if gebiet is None:
+            st.warning("❌ Gebiet konnte nicht gefunden werden.")
+            progress.empty()
+            return None
+            
+        bbox = gebiet.total_bounds
         progress.progress(0.1, text="🔍 Suche nach Sentinel-2 Daten...")
     
         catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
@@ -267,7 +312,7 @@ elif page == "🏠 Main App":
             return None
     
         item = planetary_computer.sign(items[0])
-        utm_crs = ort.estimate_utm_crs().to_epsg()
+        utm_crs = gebiet.estimate_utm_crs().to_epsg()
         progress.progress(0.4, text="🛰️ Bilddaten werden geladen...")
     
         stack = stackstac.stack(
@@ -364,7 +409,13 @@ elif page == "🏠 Main App":
             st.info("🔄 Analyse läuft...")
 
         try:
-            gebiet = ox.geocode_to_gdf(stadtteil)
+            # Verwende OpenCageData für Geocoding
+            gebiet = geocode_to_gdf_opencage(stadtteil, OPENCAGE_API_KEY)
+            if gebiet is None:
+                st.error("📍 Gebiet konnte nicht gefunden werden.")
+                st.session_state.analysis_started = False
+                return
+                
         except Exception as e:
             st.error(f"📍 Gebiet konnte nicht geladen werden: {e}")
             st.session_state.analysis_started = False
@@ -381,8 +432,15 @@ elif page == "🏠 Main App":
             "landuse": ["grass", "meadow", "forest"],
             "natural": ["wood", "tree_row", "scrub"]
         }
-        buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
-        greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+        
+        try:
+            buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
+            greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+        except Exception as e:
+            st.error(f"Fehler beim Laden der OSM-Daten: {e}")
+            st.session_state.analysis_started = False
+            return
+            
         buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
         greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
