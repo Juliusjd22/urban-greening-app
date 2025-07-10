@@ -9,7 +9,8 @@ legend_html = '''
         <p><i class="fa fa-circle" style="color:blue"></i> Kühler (-)</p>
         </div>
         '''
-        m.get_root().html.add_child(folium.Element(legend_html))import streamlit as st
+m.get_root().html.add_child(folium.Element(legend_html))
+import streamlit as st
 import geopandas as gpd
 import numpy as np
 import osmnx as ox
