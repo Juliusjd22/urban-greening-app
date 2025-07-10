@@ -1,5 +1,3 @@
-#
-
 import streamlit as st
 import geopandas as gpd
 import numpy as np
@@ -30,49 +28,53 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 # OpenCageData API Key
 OPENCAGE_API_KEY = "bb1eb77da8504268a285bc3a82daa835"
 
-def geocode_to_gdf_opencage(location_name, api_key):
+# Caching für wiederholte Anfragen
+@st.cache_data(ttl=3600)  # Cache für 1 Stunde
+def geocode_to_gdf_with_fallback(location_name):
     """
-    Geocodiert einen Ortsnamen mit OpenCageData und erstellt ein GeoDataFrame mit einem Bounding Box Polygon
+    Geocodiert mit OpenCageData, Fallback auf OSMnx wenn nötig
     """
-    geocoder = OpenCageGeocode(api_key)
+    # Versuch 1: OpenCageData
     try:
+        geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         results = geocoder.geocode(location_name, no_annotations=1)
-        if not results:
-            return None
-        
-        result = results[0]
-        
-        # Verwende bounds falls verfügbar, sonst erstelle eine kleine Bounding Box um den Punkt
-        if 'bounds' in result:
-            bounds = result['bounds']
-            minx, miny = bounds['southwest']['lng'], bounds['southwest']['lat']
-            maxx, maxy = bounds['northeast']['lng'], bounds['northeast']['lat']
-        else:
-            # Fallback: Erstelle eine kleine Box um den Punkt (ca. 1km Radius)
-            lat, lon = result['geometry']['lat'], result['geometry']['lng']
-            offset = 0.01  # ca. 1km
-            minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
-        
-        # Erstelle Polygon aus Bounding Box
-        polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
-        
-        # Erstelle GeoDataFrame
-        gdf = gpd.GeoDataFrame(
-            {'geometry': [polygon], 'name': [location_name]}, 
-            crs='EPSG:4326'
-        )
-        
-        return gdf
-        
+        if results:
+            result = results[0]
+            
+            if 'bounds' in result:
+                bounds = result['bounds']
+                minx, miny = bounds['southwest']['lng'], bounds['southwest']['lat']
+                maxx, maxy = bounds['northeast']['lng'], bounds['northeast']['lat']
+            else:
+                lat, lon = result['geometry']['lat'], result['geometry']['lng']
+                offset = 0.01
+                minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
+            
+            polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
+            gdf = gpd.GeoDataFrame(
+                {'geometry': [polygon], 'name': [location_name]}, 
+                crs='EPSG:4326'
+            )
+            st.info("✅ OpenCageData verwendet")
+            return gdf
     except Exception as e:
-        st.error(f"Geocoding fehlgeschlagen: {e}")
+        st.warning(f"⚠️ OpenCageData failed: {e}")
+    
+    # Versuch 2: OSMnx Fallback
+    try:
+        st.info("🔄 Fallback auf OSMnx...")
+        gdf = ox.geocode_to_gdf(location_name)
+        st.info("✅ OSMnx Fallback erfolgreich")
+        return gdf
+    except Exception as e:
+        st.error(f"❌ Beide Geocoding-Services fehlgeschlagen: {e}")
         return None
 
 # Seitenleiste mit Navigation
 page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
     "🏠 Main App",
     "🏗️ Building Density – Info",
-    "🌳 Distance to Green – Info",
+    "🌳 Distance to Green – Info", 
     "🔥 Heatmap – Info",
     "🛰️ Satellite k-Means – Info",
     "🌱 What We Plan Next",
@@ -144,26 +146,53 @@ elif page == "🏠 Main App":
     from PIL import Image
     col1, col2 = st.columns([1, 6])
     with col1:
-        st.image("logo.png", width=60)
+        try:
+            st.image("logo.png", width=60)
+        except:
+            pass  # Falls Logo nicht vorhanden
     with col2:
         st.markdown("<h1 style='margin-bottom: 0;'>friGIS</h1>", unsafe_allow_html=True)
     
+    @st.cache_data(ttl=1800)  # Cache für 30 Minuten
+    def load_osm_data_with_retry(polygon, tags, max_retries=3):
+        """OSM Daten mit Retry-Logik laden"""
+        for attempt in range(max_retries):
+            try:
+                data = ox.features_from_polygon(polygon, tags=tags)
+                return data
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    st.warning(f"OSM Versuch {attempt + 1} fehlgeschlagen, versuche erneut...")
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    st.error(f"OSM Daten konnten nach {max_retries} Versuchen nicht geladen werden: {e}")
+                    return gpd.GeoDataFrame()  # Leeres GeoDataFrame zurückgeben
+    
     def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
-        progress = st.progress(0, text="🏗️ Calculating building density...")
-        intersecting_geometries = buildings.sindex
-        total = len(grid)
-        for i, cell in enumerate(grid.geometry):
-            possible = list(intersecting_geometries.intersection(cell.bounds))
-            intersecting = buildings.iloc[possible][buildings.iloc[possible].intersects(cell)]
-            grid.at[i, "building_ratio"] = intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
-            if i % max(1, total // 10) == 0:
-                progress.progress(i / total, text="🏗️ Calculating building density...")
-        progress.progress(1.0, text="🏗️ Building density calculated.")
-        progress.empty()
+        if buildings.empty:
+            st.warning("⚠️ Keine Gebäudedaten verfügbar - Standardwerte verwendet")
+            grid["building_ratio"] = 0.1  # Standardwert
+        else:
+            progress = st.progress(0, text="🏗️ Calculating building density...")
+            intersecting_geometries = buildings.sindex
+            total = len(grid)
+            for i, cell in enumerate(grid.geometry):
+                try:
+                    possible = list(intersecting_geometries.intersection(cell.bounds))
+                    intersecting = buildings.iloc[possible][buildings.iloc[possible].intersects(cell)]
+                    grid.at[i, "building_ratio"] = intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
+                except:
+                    grid.at[i, "building_ratio"] = 0
+                if i % max(1, total // 10) == 0:
+                    progress.progress(i / total, text="🏗️ Calculating building density...")
+            progress.progress(1.0, text="🏗️ Building density calculated.")
+            progress.empty()
+        
         fig, ax = plt.subplots(figsize=(8, 8))
         grid.plot(ax=ax, column="building_ratio", cmap="Reds", legend=True,
                   edgecolor="grey", linewidth=0.2)
-        buildings.plot(ax=ax, color="lightgrey", edgecolor="black", alpha=0.5)
+        if not buildings.empty:
+            buildings.plot(ax=ax, color="lightgrey", edgecolor="black", alpha=0.5)
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("1️⃣ Building Density (Red = dense)")
         ax.axis("equal")
@@ -171,30 +200,46 @@ elif page == "🏠 Main App":
         return fig
 
     def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
-        progress = st.progress(0, text="🌳 Calculating distance to green areas...")
-        greens_union = greens.geometry.union_all()
-        total = len(grid)
-        for i, geom in enumerate(grid.geometry):
-            dist = greens_union.distance(geom.centroid) if not greens.empty else np.nan
-            grid.at[i, "dist_to_green"] = dist
-            if i % max(1, total // 10) == 0:
-                progress.progress(i / total, text="🌳 Calculating distance to green areas...")
-        grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
-        progress.progress(1.0, text="🌳 Distance to green calculated.")
-        progress.empty()
+        if greens.empty:
+            st.warning("⚠️ Keine Grünflächendaten verfügbar - Standardwerte verwendet")
+            grid["dist_to_green"] = max_dist
+            grid["score_distance_norm"] = 1.0
+        else:
+            progress = st.progress(0, text="🌳 Calculating distance to green areas...")
+            try:
+                greens_union = greens.geometry.union_all()
+                total = len(grid)
+                for i, geom in enumerate(grid.geometry):
+                    try:
+                        dist = greens_union.distance(geom.centroid)
+                        grid.at[i, "dist_to_green"] = dist
+                    except:
+                        grid.at[i, "dist_to_green"] = max_dist
+                    if i % max(1, total // 10) == 0:
+                        progress.progress(i / total, text="🌳 Calculating distance to green areas...")
+                grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
+                progress.progress(1.0, text="🌳 Distance to green calculated.")
+                progress.empty()
+            except Exception as e:
+                st.warning(f"Fehler bei Grünflächenanalyse: {e}")
+                grid["dist_to_green"] = max_dist
+                grid["score_distance_norm"] = 1.0
+        
         cmap = plt.cm.Reds
         norm = mcolors.Normalize(vmin=0, vmax=1)
         fig, ax = plt.subplots(figsize=(8, 8))
         grid.plot(ax=ax, column="score_distance_norm", cmap=cmap, norm=norm,
                   edgecolor="grey", linewidth=0.2, legend=True,
                   legend_kwds={"label": "Distance to green (Red = far)"})
-        greens.plot(ax=ax, color="green", alpha=0.5, edgecolor="darkgreen")
+        if not greens.empty:
+            greens.plot(ax=ax, color="green", alpha=0.5, edgecolor="darkgreen")
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("2️⃣ Distance to Green Areas")
         ax.axis("equal")
         plt.tight_layout()
         return fig
 
+    @st.cache_data(ttl=7200)  # Cache für 2 Stunden
     def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.0, resolution_km=1.5):
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
@@ -216,12 +261,9 @@ elif page == "🏠 Main App":
         total_points = len(lats) * len(lons)
         progress = st.progress(0, text=f"🔄 Temperaturdaten werden geladen... ({total_points} Punkte)")
         count = 0
-    
-        # Parallele Requests mit Session für bessere Performance
-        from concurrent.futures import ThreadPoolExecutor, as_completed
         
         def fetch_temperature(lat, lon):
-            for _ in range(2):  # Reduziert auf 2 Versuche
+            for _ in range(2):
                 try:
                     url = (
                         f"https://archive-api.open-meteo.com/v1/archive?"
@@ -229,7 +271,10 @@ elif page == "🏠 Main App":
                         f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
                         f"&daily=temperature_2m_max&timezone=auto"
                     )
-                    r = session.get(url, timeout=8)  # Reduziert auf 8s
+                    r = session.get(url, timeout=10)
+                    if r.status_code == 429:  # Rate limit
+                        time.sleep(1)
+                        continue
                     if r.status_code != 200:
                         time.sleep(0.5)
                         continue
@@ -241,9 +286,9 @@ elif page == "🏠 Main App":
                     time.sleep(0.5)
             return lat, lon, None
         
-        # Parallele Ausführung mit maximal 5 gleichzeitigen Requests
+        # Reduzierte Parallelität für Stabilität
         coords = [(lat, lon) for lat in lats for lon in lons]
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:  # Reduziert von 5 auf 3
             futures = [executor.submit(fetch_temperature, lat, lon) for lat, lon in coords]
             
             for future in as_completed(futures):
@@ -260,9 +305,13 @@ elif page == "🏠 Main App":
     
         progress.empty()
     
-        if not punkt_daten or ref_temp is None:
-            st.warning("⚠️ Nicht genug Temperaturdaten oder Mittelpunktwert nicht verfügbar.")
+        if not punkt_daten:
+            st.warning("⚠️ Keine Temperaturdaten verfügbar.")
             return None
+            
+        if ref_temp is None:
+            ref_temp = np.mean([temp for _, _, temp in punkt_daten])
+            st.info("ℹ️ Mittelpunktwert geschätzt")
     
         differenzpunkte = [
             [lat, lon, round(temp - ref_temp, 2)]
@@ -288,85 +337,88 @@ elif page == "🏠 Main App":
         return m
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
-        progress = st.progress(0, text="🔍 Satellitendaten werden gesucht...")
-        
-        # Verwende OpenCageData für Geocoding
-        gebiet = geocode_to_gdf_opencage(stadtteil_name, OPENCAGE_API_KEY)
-        if gebiet is None:
-            st.warning("❌ Gebiet konnte nicht gefunden werden.")
-            progress.empty()
-            return None
+        try:
+            progress = st.progress(0, text="🔍 Satellitendaten werden gesucht...")
             
-        bbox = gebiet.total_bounds
-        progress.progress(0.1, text="🔍 Suche nach Sentinel-2 Daten...")
-    
-        catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
-        search = catalog.search(
-            collections=["sentinel-2-l2a"],
-            bbox=bbox.tolist(),
-            datetime=year_range,
-            query={"eo:cloud_cover": {"lt": 20}}
-        )
-        items = list(search.get_items())
-        if not items:
-            st.warning("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
-            progress.empty()
-            return None
-    
-        item = planetary_computer.sign(items[0])
-        utm_crs = gebiet.estimate_utm_crs().to_epsg()
-        progress.progress(0.4, text="🛰️ Bilddaten werden geladen...")
-    
-        stack = stackstac.stack(
-            [item],
-            assets=["B04", "B03", "B02"],
-            resolution=10,
-            bounds_latlon=bbox.tolist(),
-            epsg=utm_crs
-        )
-        rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
-        rgb = np.nan_to_num(rgb)
-        rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
-    
-        h, w, _ = rgb_scaled.shape
-        pixels = rgb_scaled.reshape(-1, 3)
-        progress.progress(0.7, text="🔢 k-Means Clustering wird durchgeführt...")
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42).fit(pixels)
-        labels = kmeans.labels_
-    
-        cluster_info = []
-        for i in range(n_clusters):
-            cluster_pixels = pixels[labels == i]
-            if len(cluster_pixels) == 0:
-                cluster_info.append((i, 0, "Keine Daten"))
-                continue
-            helligkeit = cluster_pixels.mean(axis=1).mean() / 255
-            beschreibung = (
-                "🌞 Sehr hell (hohe Reflektivität)" if helligkeit > 0.75 else
-                "🔆 Hell (moderat reflektierend)" if helligkeit > 0.5 else
-                "🌥️ Mittel (neutral)" if helligkeit > 0.35 else
-                "🌡️ Dunkel (hohes Aufheizungspotenzial)"
+            gebiet = geocode_to_gdf_with_fallback(stadtteil_name)
+            if gebiet is None:
+                st.warning("❌ Gebiet konnte nicht gefunden werden.")
+                progress.empty()
+                return None
+                
+            bbox = gebiet.total_bounds
+            progress.progress(0.1, text="🔍 Suche nach Sentinel-2 Daten...")
+        
+            catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+            search = catalog.search(
+                collections=["sentinel-2-l2a"],
+                bbox=bbox.tolist(),
+                datetime=year_range,
+                query={"eo:cloud_cover": {"lt": 30}}  # Erhöht für mehr Bilder
             )
-            cluster_info.append((i, round(helligkeit, 2), beschreibung))
-    
-        gray_values = np.linspace(0, 255, n_clusters).astype(int)
-        gray_colors = np.stack([gray_values]*3, axis=1)
-        cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
-    
-        fig, ax = plt.subplots(figsize=(6,6))
-        ax.imshow(cluster_image)
-        ax.axis("off")
-    
-        legend_elements = [
-            Patch(facecolor=gray_colors[i]/255, edgecolor='black',
-                  label=f"Cluster {i}: {cluster_info[i][2]} ({cluster_info[i][1]*100:.0f}%)")
-            for i in range(n_clusters)
-        ]
-        ax.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.12),
-                  ncol=1, frameon=True, fontsize="small")
-        plt.tight_layout()
-        progress.empty()
-        return fig
+            items = list(search.get_items())
+            if not items:
+                st.warning("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
+                progress.empty()
+                return None
+        
+            item = planetary_computer.sign(items[0])
+            utm_crs = gebiet.estimate_utm_crs().to_epsg()
+            progress.progress(0.4, text="🛰️ Bilddaten werden geladen...")
+        
+            stack = stackstac.stack(
+                [item],
+                assets=["B04", "B03", "B02"],
+                resolution=20,  # Reduziert für bessere Performance
+                bounds_latlon=bbox.tolist(),
+                epsg=utm_crs
+            )
+            rgb = stack.isel(band=[0,1,2], time=0).transpose("y","x","band").values
+            rgb = np.nan_to_num(rgb)
+            rgb_scaled = np.clip((rgb / 3000) * 255, 0, 255).astype(np.uint8)
+        
+            h, w, _ = rgb_scaled.shape
+            pixels = rgb_scaled.reshape(-1, 3)
+            progress.progress(0.7, text="🔢 k-Means Clustering wird durchgeführt...")
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=5).fit(pixels)  # Reduziert n_init
+            labels = kmeans.labels_
+        
+            cluster_info = []
+            for i in range(n_clusters):
+                cluster_pixels = pixels[labels == i]
+                if len(cluster_pixels) == 0:
+                    cluster_info.append((i, 0, "Keine Daten"))
+                    continue
+                helligkeit = cluster_pixels.mean(axis=1).mean() / 255
+                beschreibung = (
+                    "🌞 Sehr hell (hohe Reflektivität)" if helligkeit > 0.75 else
+                    "🔆 Hell (moderat reflektierend)" if helligkeit > 0.5 else
+                    "🌥️ Mittel (neutral)" if helligkeit > 0.35 else
+                    "🌡️ Dunkel (hohes Aufheizungspotenzial)"
+                )
+                cluster_info.append((i, round(helligkeit, 2), beschreibung))
+        
+            gray_values = np.linspace(0, 255, n_clusters).astype(int)
+            gray_colors = np.stack([gray_values]*3, axis=1)
+            cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
+        
+            fig, ax = plt.subplots(figsize=(6,6))
+            ax.imshow(cluster_image)
+            ax.axis("off")
+        
+            legend_elements = [
+                Patch(facecolor=gray_colors[i]/255, edgecolor='black',
+                      label=f"Cluster {i}: {cluster_info[i][2]} ({cluster_info[i][1]*100:.0f}%)")
+                for i in range(n_clusters)
+            ]
+            ax.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.12),
+                      ncol=1, frameon=True, fontsize="small")
+            plt.tight_layout()
+            progress.empty()
+            return fig
+        except Exception as e:
+            st.error(f"Satellitendatenanalyse fehlgeschlagen: {e}")
+            return None
     
     def main():
         st.markdown("""
@@ -377,6 +429,19 @@ elif page == "🏠 Main App":
             multiple open-source datasets and satellite sources to analyze 
             urban heat and greening potential at the neighborhood level.
         """)
+
+        # API Status Check
+        st.sidebar.markdown("### 🟢 System Status")
+        try:
+            # Quick API test
+            test_response = requests.get("https://api.opencagedata.com/geocode/v1/json?q=test&key=" + OPENCAGE_API_KEY, timeout=5)
+            if test_response.status_code == 200:
+                remaining = test_response.headers.get('X-RateLimit-Remaining', 'Unknown')
+                st.sidebar.success(f"✅ APIs erreichbar (Remaining: {remaining})")
+            else:
+                st.sidebar.warning("⚠️ API-Probleme möglich")
+        except:
+            st.sidebar.error("❌ API nicht erreichbar")
 
         # Session State initialisieren
         if 'analysis_started' not in st.session_state:
@@ -411,15 +476,14 @@ elif page == "🏠 Main App":
             st.info("🔄 Analyse läuft...")
 
         try:
-            # Verwende OpenCageData für Geocoding
-            gebiet = geocode_to_gdf_opencage(stadtteil, OPENCAGE_API_KEY)
+            gebiet = geocode_to_gdf_with_fallback(stadtteil)
             if gebiet is None:
                 st.error("📍 Gebiet konnte nicht gefunden werden.")
                 st.session_state.analysis_started = False
                 return
                 
         except Exception as e:
-            st.error(f"📍 Gebiet konnte nicht geladen werden: {e}")
+            st.error(f"📍 Unerwarteter Fehler: {e}")
             st.session_state.analysis_started = False
             return
 
@@ -428,6 +492,7 @@ elif page == "🏠 Main App":
         gebiet = gebiet.to_crs(utm_crs)
         area = gebiet.geometry.iloc[0].buffer(0)
 
+        # OSM Daten mit Retry-Logik
         tags_buildings = {"building": True}
         tags_green = {
             "leisure": ["park", "garden"],
@@ -435,17 +500,19 @@ elif page == "🏠 Main App":
             "natural": ["wood", "tree_row", "scrub"]
         }
         
-        try:
-            buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
-            greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
-        except Exception as e:
-            st.error(f"Fehler beim Laden der OSM-Daten: {e}")
-            st.session_state.analysis_started = False
-            return
-            
-        buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
-        greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
+        st.info("📡 Lade OSM-Daten...")
+        buildings = load_osm_data_with_retry(polygon, tags_buildings)
+        greens = load_osm_data_with_retry(polygon, tags_green)
+        
+        # Daten bereinigen
+        if not buildings.empty:
+            buildings = buildings.to_crs(utm_crs)
+            buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
+        if not greens.empty:
+            greens = greens.to_crs(utm_crs)
+            greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
+        # Grid erstellen
         cell_size = 50
         minx, miny, maxx, maxy = area.bounds
         grid_cells = [
@@ -456,25 +523,36 @@ elif page == "🏠 Main App":
         ]
         grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
 
-        st.subheader("Gebäudedichte")
-        fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
-        st.pyplot(fig1)
+        # Analysen durchführen (mit Fehlerbehandlung)
+        try:
+            st.subheader("Gebäudedichte")
+            fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
+            st.pyplot(fig1)
+        except Exception as e:
+            st.error(f"Gebäudedichte-Analyse fehlgeschlagen: {e}")
 
-        st.subheader("Distanz zu Grünflächen")
-        fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
-        st.pyplot(fig2)
+        try:
+            st.subheader("Distanz zu Grünflächen")
+            fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
+            st.pyplot(fig2)
+        except Exception as e:
+            st.error(f"Grünflächen-Analyse fehlgeschlagen: {e}")
 
-        st.subheader("Temperaturdifferenz Heatmap")
-        heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
-        if heatmap:
-            st.components.v1.html(heatmap._repr_html_(), height=600)
-        else:
-            st.warning("Keine Temperaturdaten gefunden.")
+        try:
+            st.subheader("Temperaturdifferenz Heatmap")
+            heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
+            if heatmap:
+                st.components.v1.html(heatmap._repr_html_(), height=600)
+        except Exception as e:
+            st.error(f"Temperatur-Analyse fehlgeschlagen: {e}")
 
-        st.subheader("k-Means Clusteranalyse von Satellitendaten")
-        fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
-        if fig3:
-            st.pyplot(fig3)
+        try:
+            st.subheader("k-Means Clusteranalyse von Satellitendaten")
+            fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
+            if fig3:
+                st.pyplot(fig3)
+        except Exception as e:
+            st.error(f"Satellitendaten-Analyse fehlgeschlagen: {e}")
 
         # Am Ende der Analyse
         st.session_state.analysis_complete = True
@@ -482,5 +560,3 @@ elif page == "🏠 Main App":
     
     # Call main function when on the main app page
     main()
-
-# Note: The if __name__ == "__main__": block is not needed for Streamlit apps
