@@ -41,14 +41,14 @@ def geocode_to_gdf_with_fallback(location_name):
                 bounds = result['bounds']
                 minx, miny = bounds['southwest']['lng'], bounds['southwest']['lat']
                 maxx, maxy = bounds['northeast']['lng'], bounds['northeast']['lat']
-                # Kleineres Gebiet für erste zwei Analysen
+                # GRÖSSERER Radius für erste zwei Analysen
                 center_lon = (minx + maxx) / 2
                 center_lat = (miny + maxy) / 2
-                offset = 0.006  # Größerer Radius: ca. 600m
+                offset = 0.008  # Erhöht von 0.006 auf 0.008 = ca. 800m Radius
                 minx, miny, maxx, maxy = center_lon - offset, center_lat - offset, center_lon + offset, center_lat + offset
             else:
                 lat, lon = result['geometry']['lat'], result['geometry']['lng']
-                offset = 0.006  # Größerer Radius: ca. 600m
+                offset = 0.008  # Erhöht von 0.006 auf 0.008 = ca. 800m Radius
                 minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
             
             polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
@@ -196,9 +196,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("1️⃣ Building Density (Red = dense)")
         
-        # Fokus nur auf den relevanten Bereich (Grid-Bounds)
+        # KORRIGIERTER Fokus auf Grid-Bereich mit kleinerem Rand
         grid_bounds = grid.total_bounds
-        margin = 50  # 50m Rand
+        margin = 30  # Reduziert von 50 auf 30m für besseren Fokus
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
@@ -242,9 +242,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("2️⃣ Distance to Green Areas")
         
-        # Fokus nur auf den relevanten Bereich (Grid-Bounds)
+        # KORRIGIERTER Fokus auf Grid-Bereich mit kleinerem Rand
         grid_bounds = grid.total_bounds
-        margin = 50  # 50m Rand
+        margin = 30  # Reduziert von 50 auf 30m für besseren Fokus
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
