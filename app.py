@@ -207,9 +207,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("1️⃣ Building Density (Red = dense)")
         
-        # Fokus nur auf den relevanten Bereich (Grid-Bounds)
+        # Fokus nur auf den relevanten Bereich (Grid-Bounds) - ENGERER Zoom
         grid_bounds = grid.total_bounds
-        margin = 50  # 50m Rand
+        margin = 20  # Reduziert von 50m auf 20m für engeren Fokus
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
@@ -253,9 +253,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("2️⃣ Distance to Green Areas")
         
-        # Fokus nur auf den relevanten Bereich (Grid-Bounds)
+        # Fokus nur auf den relevanten Bereich (Grid-Bounds) - ENGERER Zoom
         grid_bounds = grid.total_bounds
-        margin = 50  # 50m Rand
+        margin = 20  # Reduziert von 50m auf 20m für engeren Fokus
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
@@ -625,4 +625,3 @@ elif page == "🏠 Main App":
     
     # Call main function when on the main app page
     main()
-    
