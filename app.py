@@ -154,8 +154,11 @@ elif page == "🏠 Main App":
         st.markdown("<h1 style='margin-bottom: 0;'>friGIS</h1>", unsafe_allow_html=True)
     
     @st.cache_data(ttl=1800)  # Cache für 30 Minuten
-    def load_osm_data_with_retry(polygon, tags, max_retries=3):
+    def load_osm_data_with_retry(polygon_wkt, tags, max_retries=3):
         """OSM Daten mit Retry-Logik laden"""
+        from shapely import wkt
+        polygon = wkt.loads(polygon_wkt)  # WKT zurück zu Polygon konvertieren
+        
         for attempt in range(max_retries):
             try:
                 data = ox.features_from_polygon(polygon, tags=tags)
@@ -501,8 +504,9 @@ elif page == "🏠 Main App":
         }
         
         st.info("📡 Lade OSM-Daten...")
-        buildings = load_osm_data_with_retry(polygon, tags_buildings)
-        greens = load_osm_data_with_retry(polygon, tags_green)
+        polygon_wkt = polygon.wkt  # Polygon zu WKT String konvertieren für Caching
+        buildings = load_osm_data_with_retry(polygon_wkt, tags_buildings)
+        greens = load_osm_data_with_retry(polygon_wkt, tags_green)
         
         # Daten bereinigen
         if not buildings.empty:
