@@ -22,19 +22,14 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 # Globale Session für effiziente Requests
 session = requests.Session()
-retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+retries = Retry(total=2, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
 # OpenCageData API Key
 OPENCAGE_API_KEY = "bb1eb77da8504268a285bc3a82daa835"
 
-# Caching für wiederholte Anfragen
-@st.cache_data(ttl=3600)  # Cache für 1 Stunde
 def geocode_to_gdf_with_fallback(location_name):
-    """
-    Geocodiert mit OpenCageData, Fallback auf OSMnx wenn nötig
-    """
-    # Versuch 1: OpenCageData
+    """Schnelle Geocodierung ohne Cache"""
     try:
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         results = geocoder.geocode(location_name, no_annotations=1)
@@ -47,7 +42,7 @@ def geocode_to_gdf_with_fallback(location_name):
                 maxx, maxy = bounds['northeast']['lng'], bounds['northeast']['lat']
             else:
                 lat, lon = result['geometry']['lat'], result['geometry']['lng']
-                offset = 0.01
+                offset = 0.005  # Kleineres Gebiet für bessere Performance
                 minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
             
             polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
@@ -55,16 +50,13 @@ def geocode_to_gdf_with_fallback(location_name):
                 {'geometry': [polygon], 'name': [location_name]}, 
                 crs='EPSG:4326'
             )
-            st.info("✅ OpenCageData verwendet")
             return gdf
     except Exception as e:
         st.warning(f"⚠️ OpenCageData failed: {e}")
     
-    # Versuch 2: OSMnx Fallback
+    # Fallback auf OSMnx
     try:
-        st.info("🔄 Fallback auf OSMnx...")
         gdf = ox.geocode_to_gdf(location_name)
-        st.info("✅ OSMnx Fallback erfolgreich")
         return gdf
     except Exception as e:
         st.error(f"❌ Beide Geocoding-Services fehlgeschlagen: {e}")
@@ -149,101 +141,100 @@ elif page == "🏠 Main App":
         try:
             st.image("logo.png", width=60)
         except:
-            pass  # Falls Logo nicht vorhanden
+            pass
     with col2:
         st.markdown("<h1 style='margin-bottom: 0;'>friGIS</h1>", unsafe_allow_html=True)
     
-    @st.cache_data(ttl=1800)  # Cache für 30 Minuten
-    def load_osm_data_with_retry(polygon_wkt, tags, max_retries=3):
-        """OSM Daten mit Retry-Logik laden"""
-        from shapely import wkt
-        polygon = wkt.loads(polygon_wkt)  # WKT zurück zu Polygon konvertieren
-        
+    def load_osm_data_fast(polygon, tags, max_retries=2):
+        """Schnelles OSM Daten laden ohne Cache"""
         for attempt in range(max_retries):
             try:
-                data = ox.features_from_polygon(polygon, tags=tags)
+                # Reduzierte Timeout-Werte für schnellere Fehlerbehandlung
+                data = ox.features_from_polygon(polygon, tags=tags, timeout=15)
                 return data
             except Exception as e:
                 if attempt < max_retries - 1:
-                    st.warning(f"OSM Versuch {attempt + 1} fehlgeschlagen, versuche erneut...")
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    time.sleep(1)  # Reduzierte Wartezeit
                 else:
-                    st.error(f"OSM Daten konnten nach {max_retries} Versuchen nicht geladen werden: {e}")
-                    return gpd.GeoDataFrame()  # Leeres GeoDataFrame zurückgeben
+                    st.warning(f"⚠️ OSM Daten nicht verfügbar: {str(e)[:50]}...")
+                    return gpd.GeoDataFrame()
     
-    def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
+    def gebaeudedichte_analysieren_schnell(grid, buildings, gebiet):
+        """Optimierte Gebäudedichte-Berechnung"""
         if buildings.empty:
-            st.warning("⚠️ Keine Gebäudedaten verfügbar - Standardwerte verwendet")
-            grid["building_ratio"] = 0.1  # Standardwert
+            grid["building_ratio"] = 0.1
         else:
-            progress = st.progress(0, text="🏗️ Calculating building density...")
-            intersecting_geometries = buildings.sindex
-            total = len(grid)
-            for i, cell in enumerate(grid.geometry):
-                try:
-                    possible = list(intersecting_geometries.intersection(cell.bounds))
-                    intersecting = buildings.iloc[possible][buildings.iloc[possible].intersects(cell)]
-                    grid.at[i, "building_ratio"] = intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
-                except:
-                    grid.at[i, "building_ratio"] = 0
-                if i % max(1, total // 10) == 0:
-                    progress.progress(i / total, text="🏗️ Calculating building density...")
-            progress.progress(1.0, text="🏗️ Building density calculated.")
-            progress.empty()
+            # Vereinfachte Berechnung ohne Progress Bar für bessere Performance
+            try:
+                # Spatial Index für schnellere Suche
+                spatial_index = buildings.sindex
+                for i, cell in enumerate(grid.geometry):
+                    possible_matches_index = list(spatial_index.intersection(cell.bounds))
+                    if possible_matches_index:
+                        possible_matches = buildings.iloc[possible_matches_index]
+                        precise_matches = possible_matches[possible_matches.intersects(cell)]
+                        if not precise_matches.empty:
+                            intersection_area = precise_matches.intersection(cell).area.sum()
+                            grid.at[i, "building_ratio"] = intersection_area / cell.area
+                        else:
+                            grid.at[i, "building_ratio"] = 0
+                    else:
+                        grid.at[i, "building_ratio"] = 0
+            except:
+                grid["building_ratio"] = 0.1
         
-        fig, ax = plt.subplots(figsize=(8, 8))
+        # Schnelleres Plotting
+        fig, ax = plt.subplots(figsize=(6, 6))  # Kleinere Figur
         grid.plot(ax=ax, column="building_ratio", cmap="Reds", legend=True,
-                  edgecolor="grey", linewidth=0.2)
-        if not buildings.empty:
-            buildings.plot(ax=ax, color="lightgrey", edgecolor="black", alpha=0.5)
-        gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
-        ax.set_title("1️⃣ Building Density (Red = dense)")
-        ax.axis("equal")
+                  edgecolor="none", linewidth=0)  # Keine Edges für Performance
+        if not buildings.empty and len(buildings) < 1000:  # Nur bei wenigen Gebäuden anzeigen
+            buildings.plot(ax=ax, color="lightgrey", alpha=0.3)
+        gebiet.boundary.plot(ax=ax, color="blue", linewidth=1)
+        ax.set_title("1️⃣ Building Density", fontsize=12)
+        ax.axis("off")  # Achsen ausblenden für sauberes Layout
         plt.tight_layout()
         return fig
 
-    def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
+    def distanz_zu_gruenflaechen_schnell(grid, greens, gebiet, max_dist=300):
+        """Optimierte Grünflächen-Distanz"""
         if greens.empty:
-            st.warning("⚠️ Keine Grünflächendaten verfügbar - Standardwerte verwendet")
             grid["dist_to_green"] = max_dist
             grid["score_distance_norm"] = 1.0
         else:
-            progress = st.progress(0, text="🌳 Calculating distance to green areas...")
             try:
-                greens_union = greens.geometry.union_all()
-                total = len(grid)
+                # Vereinfachte Union-Berechnung
+                if len(greens) > 50:  # Bei vielen Grünflächen: Sampling
+                    greens_sample = greens.sample(n=50)
+                    greens_union = greens_sample.geometry.union_all()
+                else:
+                    greens_union = greens.geometry.union_all()
+                
+                # Schnellere Distanzberechnung
                 for i, geom in enumerate(grid.geometry):
                     try:
                         dist = greens_union.distance(geom.centroid)
-                        grid.at[i, "dist_to_green"] = dist
+                        grid.at[i, "dist_to_green"] = min(dist, max_dist)
                     except:
                         grid.at[i, "dist_to_green"] = max_dist
-                    if i % max(1, total // 10) == 0:
-                        progress.progress(i / total, text="🌳 Calculating distance to green areas...")
-                grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
-                progress.progress(1.0, text="🌳 Distance to green calculated.")
-                progress.empty()
-            except Exception as e:
-                st.warning(f"Fehler bei Grünflächenanalyse: {e}")
+                
+                grid["score_distance_norm"] = grid["dist_to_green"] / max_dist
+            except:
                 grid["dist_to_green"] = max_dist
                 grid["score_distance_norm"] = 1.0
         
-        cmap = plt.cm.Reds
-        norm = mcolors.Normalize(vmin=0, vmax=1)
-        fig, ax = plt.subplots(figsize=(8, 8))
-        grid.plot(ax=ax, column="score_distance_norm", cmap=cmap, norm=norm,
-                  edgecolor="grey", linewidth=0.2, legend=True,
-                  legend_kwds={"label": "Distance to green (Red = far)"})
-        if not greens.empty:
-            greens.plot(ax=ax, color="green", alpha=0.5, edgecolor="darkgreen")
-        gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
-        ax.set_title("2️⃣ Distance to Green Areas")
-        ax.axis("equal")
+        fig, ax = plt.subplots(figsize=(6, 6))
+        grid.plot(ax=ax, column="score_distance_norm", cmap="Reds",
+                  edgecolor="none", linewidth=0, legend=True)
+        if not greens.empty and len(greens) < 200:
+            greens.plot(ax=ax, color="green", alpha=0.4)
+        gebiet.boundary.plot(ax=ax, color="blue", linewidth=1)
+        ax.set_title("2️⃣ Distance to Green", fontsize=12)
+        ax.axis("off")
         plt.tight_layout()
         return fig
 
-    @st.cache_data(ttl=7200)  # Cache für 2 Stunden
-    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.0, resolution_km=1.5):
+    def heatmap_temperaturen_erweitert(ort_name, jahr=2022, radius_km=1.2, resolution_km=0.8):
+        """ERWEITERTE Temperaturdaten mit MEHR Punkten für bessere Heatmap"""
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
             results = geocoder.geocode(ort_name, no_annotations=1)
@@ -256,55 +247,54 @@ elif page == "🏠 Main App":
             return None
     
         lat0, lon0 = results[0]['geometry']['lat'], results[0]['geometry']['lng']
+        
+        # MEHR Temperaturpunkte für detailliertere Heatmap
         lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111 + 1e-6, resolution_km / 111)
         lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85 + 1e-6, resolution_km / 85)
     
         punkt_daten = []
         ref_temp = None
         total_points = len(lats) * len(lons)
-        progress = st.progress(0, text=f"🔄 Temperaturdaten werden geladen... ({total_points} Punkte)")
+        
+        progress = st.progress(0, text=f"🌡️ Lade {total_points} Temperaturpunkte...")
         count = 0
         
-        def fetch_temperature(lat, lon):
-            for _ in range(2):
-                try:
-                    url = (
-                        f"https://archive-api.open-meteo.com/v1/archive?"
-                        f"latitude={lat}&longitude={lon}"
-                        f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
-                        f"&daily=temperature_2m_max&timezone=auto"
-                    )
-                    r = session.get(url, timeout=10)
-                    if r.status_code == 429:  # Rate limit
-                        time.sleep(1)
-                        continue
-                    if r.status_code != 200:
-                        time.sleep(0.5)
-                        continue
+        def fetch_temperature_fast(lat, lon):
+            """Optimierte Temperaturabfrage"""
+            try:
+                url = (
+                    f"https://archive-api.open-meteo.com/v1/archive?"
+                    f"latitude={lat}&longitude={lon}"
+                    f"&start_date={jahr}-07-01&end_date={jahr}-07-31"  # Nur Juli für Performance
+                    f"&daily=temperature_2m_max&timezone=auto"
+                )
+                r = session.get(url, timeout=6)
+                if r.status_code == 200:
                     temps = r.json().get("daily", {}).get("temperature_2m_max", [])
-                    if not temps:
-                        break
-                    return lat, lon, round(np.mean(temps), 2)
-                except Exception:
-                    time.sleep(0.5)
+                    if temps:
+                        return lat, lon, round(np.mean(temps), 2)
+            except:
+                pass
             return lat, lon, None
         
-        # Reduzierte Parallelität für Stabilität
+        # ERHÖHTE Parallelität für mehr Temperaturpunkte
         coords = [(lat, lon) for lat in lats for lon in lons]
-        with ThreadPoolExecutor(max_workers=3) as executor:  # Reduziert von 5 auf 3
-            futures = [executor.submit(fetch_temperature, lat, lon) for lat, lon in coords]
+        with ThreadPoolExecutor(max_workers=8) as executor:  # Mehr Workers
+            futures = [executor.submit(fetch_temperature_fast, lat, lon) for lat, lon in coords]
             
             for future in as_completed(futures):
                 lat, lon, temp = future.result()
                 if temp is not None:
                     punkt_daten.append([lat, lon, temp])
                     
+                    # Referenztemperatur am Zentrum
                     if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
                         ref_temp = temp
                 
                 count += 1
-                progress.progress(min(count / total_points, 1.0), 
-                               text=f"🔄 Temperaturdaten werden geladen... ({count}/{total_points})")
+                if count % 5 == 0:  # Weniger häufige Updates
+                    progress.progress(min(count / total_points, 1.0), 
+                                   text=f"🌡️ {count}/{total_points} Temperaturpunkte")
     
         progress.empty()
     
@@ -314,65 +304,72 @@ elif page == "🏠 Main App":
             
         if ref_temp is None:
             ref_temp = np.mean([temp for _, _, temp in punkt_daten])
-            st.info("ℹ️ Mittelpunktwert geschätzt")
     
+        # Temperaturdifferenzen berechnen
         differenzpunkte = [
             [lat, lon, round(temp - ref_temp, 2)]
             for lat, lon, temp in punkt_daten
         ]
     
-        m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
+        # Verbesserte Heatmap mit mehr Datenpunkten
+        m = folium.Map(location=[lat0, lon0], zoom_start=14, tiles="CartoDB positron")
+        
+        # Intensivere Heatmap-Darstellung
         HeatMap(
-            [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte],
-            radius=18,
-            blur=25,
-            max_zoom=13,
-            gradient={0.0: "green", 0.3: "lightyellow", 0.6: "orange", 1.0: "red"}
+            [[lat, lon, abs(diff) + 0.1] for lat, lon, diff in differenzpunkte],  # +0.1 für bessere Sichtbarkeit
+            radius=20,  # Größerer Radius
+            blur=15,    # Weniger Blur für schärfere Darstellung
+            max_zoom=15,
+            gradient={0.0: "blue", 0.2: "green", 0.5: "yellow", 0.8: "orange", 1.0: "red"}
         ).add_to(m)
     
-        for lat, lon, diff in differenzpunkte:
+        # Mehr Temperatur-Marker für bessere Information
+        for lat, lon, diff in differenzpunkte[::2]:  # Jeden 2. Punkt anzeigen
+            color = "red" if diff > 0.5 else "blue" if diff < -0.5 else "orange"
             sign = "+" if diff > 0 else ("−" if diff < 0 else "±")
-            folium.Marker(
+            folium.CircleMarker(
                 [lat, lon],
-                icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
+                radius=6,
+                popup=f"{sign}{abs(diff):.1f}°C",
+                color=color,
+                fillColor=color,
+                fillOpacity=0.7
             ).add_to(m)
     
+        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen!")
         return m
     
-    def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
+    def satellitendaten_schnell(stadtteil_name, n_clusters=4):
+        """Optimierte Satellitendatenanalyse"""
         try:
-            progress = st.progress(0, text="🔍 Satellitendaten werden gesucht...")
-            
             gebiet = geocode_to_gdf_with_fallback(stadtteil_name)
             if gebiet is None:
-                st.warning("❌ Gebiet konnte nicht gefunden werden.")
-                progress.empty()
                 return None
                 
             bbox = gebiet.total_bounds
-            progress.progress(0.1, text="🔍 Suche nach Sentinel-2 Daten...")
-        
+            
+            # Schnellere STAC-Suche
             catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
             search = catalog.search(
                 collections=["sentinel-2-l2a"],
                 bbox=bbox.tolist(),
-                datetime=year_range,
-                query={"eo:cloud_cover": {"lt": 30}}  # Erhöht für mehr Bilder
+                datetime="2023-01-01/2024-12-31",  # Größerer Zeitraum
+                query={"eo:cloud_cover": {"lt": 40}},  # Mehr Bilder zulassen
+                limit=1  # Nur das erste Bild
             )
             items = list(search.get_items())
             if not items:
-                st.warning("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
-                progress.empty()
+                st.warning("❌ Kein Satellitenbild gefunden.")
                 return None
         
             item = planetary_computer.sign(items[0])
             utm_crs = gebiet.estimate_utm_crs().to_epsg()
-            progress.progress(0.4, text="🛰️ Bilddaten werden geladen...")
         
+            # Niedrigere Auflösung für bessere Performance
             stack = stackstac.stack(
                 [item],
                 assets=["B04", "B03", "B02"],
-                resolution=20,  # Reduziert für bessere Performance
+                resolution=60,  # Deutlich reduziert
                 bounds_latlon=bbox.tolist(),
                 epsg=utm_crs
             )
@@ -382,71 +379,59 @@ elif page == "🏠 Main App":
         
             h, w, _ = rgb_scaled.shape
             pixels = rgb_scaled.reshape(-1, 3)
-            progress.progress(0.7, text="🔢 k-Means Clustering wird durchgeführt...")
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=5).fit(pixels)  # Reduziert n_init
+            
+            # Schnelleres k-Means
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=3, max_iter=100).fit(pixels)
             labels = kmeans.labels_
         
+            # Cluster-Info berechnen
             cluster_info = []
             for i in range(n_clusters):
                 cluster_pixels = pixels[labels == i]
                 if len(cluster_pixels) == 0:
-                    cluster_info.append((i, 0, "Keine Daten"))
                     continue
                 helligkeit = cluster_pixels.mean(axis=1).mean() / 255
                 beschreibung = (
-                    "🌞 Sehr hell (hohe Reflektivität)" if helligkeit > 0.75 else
-                    "🔆 Hell (moderat reflektierend)" if helligkeit > 0.5 else
-                    "🌥️ Mittel (neutral)" if helligkeit > 0.35 else
-                    "🌡️ Dunkel (hohes Aufheizungspotenzial)"
+                    "🌞 Sehr hell" if helligkeit > 0.7 else
+                    "🔆 Hell" if helligkeit > 0.5 else
+                    "🌥️ Mittel" if helligkeit > 0.35 else
+                    "🌡️ Dunkel"
                 )
                 cluster_info.append((i, round(helligkeit, 2), beschreibung))
         
+            # Visualisierung
             gray_values = np.linspace(0, 255, n_clusters).astype(int)
             gray_colors = np.stack([gray_values]*3, axis=1)
             cluster_image = gray_colors[labels].reshape(h, w, 3).astype(np.uint8)
         
-            fig, ax = plt.subplots(figsize=(6,6))
+            fig, ax = plt.subplots(figsize=(5,5))  # Kleinere Figur
             ax.imshow(cluster_image)
             ax.axis("off")
         
+            # Kompakte Legende
             legend_elements = [
                 Patch(facecolor=gray_colors[i]/255, edgecolor='black',
-                      label=f"Cluster {i}: {cluster_info[i][2]} ({cluster_info[i][1]*100:.0f}%)")
-                for i in range(n_clusters)
+                      label=f"{cluster_info[i][2]}")
+                for i in range(len(cluster_info))
             ]
-            ax.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.12),
-                      ncol=1, frameon=True, fontsize="small")
+            ax.legend(handles=legend_elements, loc="lower center", bbox_to_anchor=(0.5, -0.1),
+                      ncol=2, frameon=True, fontsize="x-small")
             plt.tight_layout()
-            progress.empty()
             return fig
         except Exception as e:
-            st.error(f"Satellitendatenanalyse fehlgeschlagen: {e}")
+            st.warning(f"Satellitendaten nicht verfügbar: {str(e)[:50]}...")
             return None
     
     def main():
         st.markdown("""
-            by Philippa, Samuel, Julius  
-            Take a look at our interactive prototype designed to demonstrate 
-            how environmental and geospatial data can be used to identify 
-            urban areas in need of greening interventions. It integrates 
-            multiple open-source datasets and satellite sources to analyze 
-            urban heat and greening potential at the neighborhood level.
+            **🚀 Optimierte Version** - by Philippa, Samuel, Julius  
+            Schnelle Analyse von städtischen Wärmeinseln und Begrünungspotentialen mit erweiterten Temperaturdaten.
         """)
 
-        # API Status Check
-        st.sidebar.markdown("### 🟢 System Status")
-        try:
-            # Quick API test
-            test_response = requests.get("https://api.opencagedata.com/geocode/v1/json?q=test&key=" + OPENCAGE_API_KEY, timeout=5)
-            if test_response.status_code == 200:
-                remaining = test_response.headers.get('X-RateLimit-Remaining', 'Unknown')
-                st.sidebar.success(f"✅ APIs erreichbar (Remaining: {remaining})")
-            else:
-                st.sidebar.warning("⚠️ API-Probleme möglich")
-        except:
-            st.sidebar.error("❌ API nicht erreichbar")
+        # Performance-Indikator
+        start_time = time.time()
 
-        # Session State initialisieren
+        # Session State
         if 'analysis_started' not in st.session_state:
             st.session_state.analysis_started = False
         if 'analysis_complete' not in st.session_state:
@@ -454,11 +439,11 @@ elif page == "🏠 Main App":
 
         stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
 
-        # Button Logic mit Session State
+        # Buttons
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            if st.button("🔍 Analyse starten", disabled=st.session_state.analysis_started):
+            if st.button("🚀 Schnellanalyse starten", disabled=st.session_state.analysis_started):
                 if stadtteil:
                     st.session_state.analysis_started = True
                     st.session_state.analysis_complete = False
@@ -470,97 +455,95 @@ elif page == "🏠 Main App":
                     st.session_state.analysis_complete = False
                     st.rerun()
 
-        # Analyse nur ausführen wenn gestartet
         if not st.session_state.analysis_started or not stadtteil:
             return
 
-        # Status anzeigen
-        if not st.session_state.analysis_complete:
-            st.info("🔄 Analyse läuft...")
+        st.info("⚡ Schnellanalyse läuft...")
 
         try:
+            # Geocoding
             gebiet = geocode_to_gdf_with_fallback(stadtteil)
             if gebiet is None:
                 st.error("📍 Gebiet konnte nicht gefunden werden.")
                 st.session_state.analysis_started = False
                 return
                 
-        except Exception as e:
-            st.error(f"📍 Unerwarteter Fehler: {e}")
-            st.session_state.analysis_started = False
-            return
+            polygon = gebiet.geometry.iloc[0]
+            utm_crs = gebiet.estimate_utm_crs()
+            gebiet = gebiet.to_crs(utm_crs)
+            area = gebiet.geometry.iloc[0].buffer(0)
 
-        polygon = gebiet.geometry.iloc[0]
-        utm_crs = gebiet.estimate_utm_crs()
-        gebiet = gebiet.to_crs(utm_crs)
-        area = gebiet.geometry.iloc[0].buffer(0)
+            # Optimierte OSM-Abfragen
+            tags_buildings = {"building": True}
+            tags_green = {
+                "leisure": ["park", "garden"],
+                "landuse": ["grass", "forest"],  # Reduziert
+                "natural": ["wood"]  # Reduziert
+            }
+            
+            # Parallele OSM-Abfragen für bessere Performance
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                future_buildings = executor.submit(load_osm_data_fast, polygon, tags_buildings)
+                future_greens = executor.submit(load_osm_data_fast, polygon, tags_green)
+                
+                buildings = future_buildings.result()
+                greens = future_greens.result()
+            
+            # Daten bereinigen
+            if not buildings.empty:
+                buildings = buildings.to_crs(utm_crs)
+                buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
+            if not greens.empty:
+                greens = greens.to_crs(utm_crs)
+                greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
-        # OSM Daten mit Retry-Logik
-        tags_buildings = {"building": True}
-        tags_green = {
-            "leisure": ["park", "garden"],
-            "landuse": ["grass", "meadow", "forest"],
-            "natural": ["wood", "tree_row", "scrub"]
-        }
-        
-        st.info("📡 Lade OSM-Daten...")
-        polygon_wkt = polygon.wkt  # Polygon zu WKT String konvertieren für Caching
-        buildings = load_osm_data_with_retry(polygon_wkt, tags_buildings)
-        greens = load_osm_data_with_retry(polygon_wkt, tags_green)
-        
-        # Daten bereinigen
-        if not buildings.empty:
-            buildings = buildings.to_crs(utm_crs)
-            buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
-        if not greens.empty:
-            greens = greens.to_crs(utm_crs)
-            greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
+            # Optimiertes Grid (größere Zellen für bessere Performance)
+            cell_size = 75  # Vergrößert von 50
+            minx, miny, maxx, maxy = area.bounds
+            grid_cells = [
+                box(x, y, x + cell_size, y + cell_size)
+                for x in np.arange(minx, maxx, cell_size)
+                for y in np.arange(miny, maxy, cell_size)
+                if box(x, y, x + cell_size, y + cell_size).intersects(area)
+            ]
+            grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
 
-        # Grid erstellen
-        cell_size = 50
-        minx, miny, maxx, maxy = area.bounds
-        grid_cells = [
-            box(x, y, x + cell_size, y + cell_size)
-            for x in np.arange(minx, maxx, cell_size)
-            for y in np.arange(miny, maxy, cell_size)
-            if box(x, y, x + cell_size, y + cell_size).intersects(area)
-        ]
-        grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
+            # Analysen parallel durchführen
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("🏗️ Gebäudedichte")
+                fig1 = gebaeudedichte_analysieren_schnell(grid.copy(), buildings, gebiet)
+                st.pyplot(fig1, use_container_width=True)
 
-        # Analysen durchführen (mit Fehlerbehandlung)
-        try:
-            st.subheader("Gebäudedichte")
-            fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
-            st.pyplot(fig1)
-        except Exception as e:
-            st.error(f"Gebäudedichte-Analyse fehlgeschlagen: {e}")
+            with col2:
+                st.subheader("🌳 Grünflächen-Distanz")
+                fig2 = distanz_zu_gruenflaechen_schnell(grid.copy(), greens, gebiet)
+                st.pyplot(fig2, use_container_width=True)
 
-        try:
-            st.subheader("Distanz zu Grünflächen")
-            fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
-            st.pyplot(fig2)
-        except Exception as e:
-            st.error(f"Grünflächen-Analyse fehlgeschlagen: {e}")
-
-        try:
-            st.subheader("Temperaturdifferenz Heatmap")
-            heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
+            # Erweiterte Temperaturdaten (wichtigster Teil!)
+            st.subheader("🔥 Erweiterte Temperatur-Heatmap")
+            st.info("🌡️ Lade MEHR Temperaturpunkte für detailliertere Analyse...")
+            heatmap = heatmap_temperaturen_erweitert(ort_name=stadtteil)
             if heatmap:
-                st.components.v1.html(heatmap._repr_html_(), height=600)
-        except Exception as e:
-            st.error(f"Temperatur-Analyse fehlgeschlagen: {e}")
+                st.components.v1.html(heatmap._repr_html_(), height=500)
 
-        try:
-            st.subheader("k-Means Clusteranalyse von Satellitendaten")
-            fig3 = analysiere_reflektivitaet_graustufen(stadtteil, n_clusters=5)
-            if fig3:
-                st.pyplot(fig3)
-        except Exception as e:
-            st.error(f"Satellitendaten-Analyse fehlgeschlagen: {e}")
+            # Satellitendaten optional
+            with st.expander("🛰️ Satellitendaten-Analyse (optional)"):
+                if st.button("Satellitendaten laden"):
+                    fig3 = satellitendaten_schnell(stadtteil)
+                    if fig3:
+                        st.pyplot(fig3, use_container_width=True)
 
-        # Am Ende der Analyse
-        st.session_state.analysis_complete = True
-        st.success("✅ Analyse abgeschlossen! Du kannst jetzt eine neue Analyse starten.")
+            # Performance-Messung
+            end_time = time.time()
+            duration = round(end_time - start_time, 1)
+            
+            st.session_state.analysis_complete = True
+            st.success(f"✅ Schnellanalyse abgeschlossen in {duration}s! 🚀")
+
+        except Exception as e:
+            st.error(f"❌ Fehler: {e}")
+            st.session_state.analysis_started = False
     
-    # Call main function when on the main app page
     main()
