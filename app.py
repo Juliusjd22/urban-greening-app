@@ -41,9 +41,14 @@ def geocode_to_gdf_with_fallback(location_name):
                 bounds = result['bounds']
                 minx, miny = bounds['southwest']['lng'], bounds['southwest']['lat']
                 maxx, maxy = bounds['northeast']['lng'], bounds['northeast']['lat']
+                # Kleineres Gebiet für erste zwei Analysen
+                center_lon = (minx + maxx) / 2
+                center_lat = (miny + maxy) / 2
+                offset = 0.004  # Deutlich kleiner: ca. 400m Radius
+                minx, miny, maxx, maxy = center_lon - offset, center_lat - offset, center_lon + offset, center_lat + offset
             else:
                 lat, lon = result['geometry']['lat'], result['geometry']['lng']
-                offset = 0.01
+                offset = 0.004  # Deutlich kleiner: ca. 400m Radius
                 minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
             
             polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
@@ -234,7 +239,7 @@ elif page == "🏠 Main App":
         plt.tight_layout()
         return fig
 
-    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.2, resolution_km=1.0):
+    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=2.0, resolution_km=0.6):
         """ERWEITERTE Temperaturdaten - MEHR Punkte"""
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
@@ -278,9 +283,9 @@ elif page == "🏠 Main App":
                     time.sleep(0.5)
             return lat, lon, None
         
-        # Parallele Ausführung mit maximal 5 gleichzeitigen Requests
+        # Erhöhte Parallelität für DEUTLICH MEHR Temperaturpunkte
         coords = [(lat, lon) for lat in lats for lon in lons]
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=8) as executor:  # Erhöht von 5 auf 8
             futures = [executor.submit(fetch_temperature, lat, lon) for lat, lon in coords]
             
             for future in as_completed(futures):
@@ -310,11 +315,12 @@ elif page == "🏠 Main App":
             for lat, lon, temp in punkt_daten
         ]
     
+        # Verbesserte Heatmap mit MEHR Datenpunkten
         m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
         HeatMap(
             [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte],
-            radius=18,
-            blur=25,
+            radius=22,  # Größerer Radius für bessere Sichtbarkeit
+            blur=20,    # Optimierter Blur
             max_zoom=13,
             gradient={0.0: "green", 0.3: "lightyellow", 0.6: "orange", 1.0: "red"}
         ).add_to(m)
@@ -326,6 +332,7 @@ elif page == "🏠 Main App":
                 icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
             ).add_to(m)
     
+        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (ERWEITERT: {radius_km}km Radius, {resolution_km}km Auflösung)!")
         return m
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
