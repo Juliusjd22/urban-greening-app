@@ -402,5 +402,5 @@ elif page == "🏠 Main App":
     st.session_state.analysis_complete = True
     st.success("✅ Analyse abgeschlossen! Du kannst jetzt eine neue Analyse starten.")
     
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()
