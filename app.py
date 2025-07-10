@@ -6,6 +6,7 @@ from shapely.geometry import box
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import requests
+from requests.adapters import HTTPAdapter, Retry
 from geopy.geocoders import Nominatim
 from folium.plugins import HeatMap
 import folium
@@ -18,14 +19,24 @@ import time
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+# Globale Session für effiziente Requests
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+session.mount('https://', HTTPAdapter(max_retries=retries))
+
+
 def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
     progress = st.progress(0, text="🏗️ Gebäudedichte wird berechnet...")
 
-    def calc_building_ratio(cell):
-        intersecting = buildings[buildings.intersects(cell)]
-        return intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
+    intersecting_geometries = buildings.sindex
+    total = len(grid)
+    for i, cell in enumerate(grid.geometry):
+        possible = list(intersecting_geometries.intersection(cell.bounds))
+        intersecting = buildings.iloc[possible][buildings.iloc[possible].intersects(cell)]
+        grid.at[i, "building_ratio"] = intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
+        if i % max(1, total // 10) == 0:
+            progress.progress(i / total, text="🏗️ Gebäudedichte wird berechnet...")
 
-    grid["building_ratio"] = grid.geometry.apply(calc_building_ratio)
     progress.progress(1.0, text="🏗️ Gebäudedichte fertig berechnet.")
     progress.empty()
 
@@ -39,15 +50,18 @@ def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
     plt.tight_layout()
     return fig
 
+
 def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
     progress = st.progress(0, text="🌳 Entfernung zu Grünflächen wird berechnet...")
+    greens_union = greens.unary_union
+    total = len(grid)
 
-    def safe_distance(gdf, geom):
-        if gdf.empty or geom.is_empty:
-            return np.nan
-        return gdf.geometry.distance(geom.centroid).min()
+    for i, geom in enumerate(grid.geometry):
+        dist = greens_union.distance(geom.centroid) if not greens.is_empty else np.nan
+        grid.at[i, "dist_to_green"] = dist
+        if i % max(1, total // 10) == 0:
+            progress.progress(i / total, text="🌳 Entfernung zu Grünflächen wird berechnet...")
 
-    grid["dist_to_green"] = grid.geometry.apply(lambda g: safe_distance(greens, g))
     grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
 
     progress.progress(1.0, text="🌳 Entfernung zu Grünflächen fertig berechnet.")
@@ -66,6 +80,7 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     ax.axis("equal")
     plt.tight_layout()
     return fig
+
 
 
 def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
