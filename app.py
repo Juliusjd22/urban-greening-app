@@ -59,7 +59,7 @@ elif page == "🔥 Heatmap – Info":
     st.title("🔥 Heatmap – Info")
     st.markdown("""
     **How it works:**
-    Daily maximum temperatures (e.g. from Open-Meteo) are collected in a grid. Differences from the central point show relative heating.
+    Daily maximum temperatures (from Open-Meteo) are collected in a grid. Differences from the central point show relative heating.
 
     **Why it's valuable:**
     It helps identify local hotspots and temperature variations within neighborhoods.
@@ -72,7 +72,7 @@ elif page == "🛰️ Satellite k-Means – Info":
     Satellite imagery (Sentinel-2) is clustered by brightness to assess reflectivity and infer potential for surface heating.
 
     **Note:**
-    This only works in areas with recent cloud-free satellite imagery – mainly large urban areas.
+    This only works in large urban areas.
     """)
 
 elif page == "🌱 What We Plan Next":
@@ -307,12 +307,13 @@ elif page == "🏠 Main App":
         return fig
     
     def main():
-        st.title("🌿 friGIS")
-
         st.markdown("""
             by Philippa, Samuel, Julius  
-            Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
-            auf Basis welcher Daten wir ...
+            Take a look at our interactive prototype designed to demonstrate 
+            how environmental and geospatial data can be used to identify 
+            urban areas in need of greening interventions. It integrates 
+            multiple open-source datasets and satellite sources to analyze 
+            urban heat and greening potential at the neighborhood level.
         """)
 
         # Session State initialisieren
