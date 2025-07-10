@@ -44,11 +44,11 @@ def geocode_to_gdf_with_fallback(location_name):
                 # Kleineres Gebiet für erste zwei Analysen
                 center_lon = (minx + maxx) / 2
                 center_lat = (miny + maxy) / 2
-                offset = 0.004  # Deutlich kleiner: ca. 400m Radius
+                offset = 0.0035  # Etwas kleiner: ca. 350m Radius
                 minx, miny, maxx, maxy = center_lon - offset, center_lat - offset, center_lon + offset, center_lat + offset
             else:
                 lat, lon = result['geometry']['lat'], result['geometry']['lng']
-                offset = 0.004  # Deutlich kleiner: ca. 400m Radius
+                offset = 0.0035  # Etwas kleiner: ca. 350m Radius
                 minx, miny, maxx, maxy = lon - offset, lat - offset, lon + offset, lat + offset
             
             polygon = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
@@ -239,7 +239,7 @@ elif page == "🏠 Main App":
         plt.tight_layout()
         return fig
 
-    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=2.0, resolution_km=0.6):
+    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=2.4, resolution_km=0.45):
         """ERWEITERTE Temperaturdaten - MEHR Punkte"""
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
@@ -332,7 +332,7 @@ elif page == "🏠 Main App":
                 icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
             ).add_to(m)
     
-        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (ERWEITERT: {radius_km}km Radius, {resolution_km}km Auflösung)!")
+        st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (ERWEITERT: {radius_km}km Radius, {resolution_km}km Auflösung = ~{len(punkt_daten)} Messpunkte)!")
         return m
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
@@ -365,10 +365,11 @@ elif page == "🏠 Main App":
             utm_crs = gebiet.estimate_utm_crs().to_epsg()
             progress.progress(0.4, text="🛰️ Bilddaten werden geladen...")
         
+            # VIEL bessere Auflösung für k-Means
             stack = stackstac.stack(
                 [item],
                 assets=["B04", "B03", "B02"],
-                resolution=10,
+                resolution=5,  # Deutlich verbessert von 10 auf 5
                 bounds_latlon=bbox.tolist(),
                 epsg=utm_crs
             )
