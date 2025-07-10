@@ -1,5 +1,5 @@
 # Zusätzliche Legende als HTML
-        legend_html = '''
+legend_html = '''
         <div style="position: fixed; 
                     top: 10px; right: 10px; width: 150px; height: 90px; 
                     background-color: white; border:2px solid grey; z-index:9999; 
@@ -366,7 +366,18 @@ elif page == "🏠 Main App":
                 gradient={0.0: "rgba(173,216,230,0.1)", 0.5: "rgba(100,149,237,0.6)", 1.0: "rgba(0,0,255,0.8)"}  # Hellblau zu Blau
             ).add_to(m)
     
-        # Verbesserte Marker mit Farbkodierung
+        # Einfache Marker ohne HTML-Scheiß
+        for lat, lon, diff in differenzpunkte:
+            sign = "+" if diff > 0 else ("−" if diff < 0 else "±")
+            color = "red" if diff > 0 else "blue" if diff < 0 else "gray"
+            folium.CircleMarker(
+                [lat, lon],
+                radius=6,
+                popup=f"{sign}{abs(diff):.1f}°C",
+                color=color,
+                fillColor=color,
+                fillOpacity=0.6
+            ).add_to(m)
         for lat, lon, diff in differenzpunkte:
             if diff > 0.5:
                 color = "red"
