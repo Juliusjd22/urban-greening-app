@@ -17,6 +17,7 @@ from pystac_client import Client
 from matplotlib.patches import Patch
 import time
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # Globale Session für effiziente Requests
@@ -154,10 +155,10 @@ elif page == "🏠 Main App":
         plt.tight_layout()
         return fig
 
-    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
+    def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.0, resolution_km=1.5):
         geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
-            results = geocoder.geocode(ort_name)
+            results = geocoder.geocode(ort_name, no_annotations=1)
         except Exception as e:
             st.error(f"🌍 Geokodierung fehlgeschlagen: {e}")
             return None
@@ -173,38 +174,49 @@ elif page == "🏠 Main App":
         punkt_daten = []
         ref_temp = None
         total_points = len(lats) * len(lons)
-        progress = st.progress(0, text="🔄 Temperaturdaten werden geladen...")
+        progress = st.progress(0, text=f"🔄 Temperaturdaten werden geladen... ({total_points} Punkte)")
         count = 0
     
-        for lat in lats:
-            for lon in lons:
-                success = False
-                for _ in range(3):
-                    try:
-                        url = (
-                            f"https://archive-api.open-meteo.com/v1/archive?"
-                            f"latitude={lat}&longitude={lon}"
-                            f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
-                            f"&daily=temperature_2m_max&timezone=auto"
-                        )
-                        r = requests.get(url, timeout=10)
-                        if r.status_code != 200:
-                            time.sleep(1)
-                            continue
-                        temps = r.json().get("daily", {}).get("temperature_2m_max", [])
-                        if not temps:
-                            break
-                        avg_temp = round(np.mean(temps), 2)
-                        punkt_daten.append([lat, lon, avg_temp])
-    
-                        if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
-                            ref_temp = avg_temp
-                        success = True
+        # Parallele Requests mit Session für bessere Performance
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        def fetch_temperature(lat, lon):
+            for _ in range(2):  # Reduziert auf 2 Versuche
+                try:
+                    url = (
+                        f"https://archive-api.open-meteo.com/v1/archive?"
+                        f"latitude={lat}&longitude={lon}"
+                        f"&start_date={jahr}-06-01&end_date={jahr}-08-31"
+                        f"&daily=temperature_2m_max&timezone=auto"
+                    )
+                    r = session.get(url, timeout=8)  # Reduziert auf 8s
+                    if r.status_code != 200:
+                        time.sleep(0.5)
+                        continue
+                    temps = r.json().get("daily", {}).get("temperature_2m_max", [])
+                    if not temps:
                         break
-                    except Exception:
-                        time.sleep(1)
+                    return lat, lon, round(np.mean(temps), 2)
+                except Exception:
+                    time.sleep(0.5)
+            return lat, lon, None
+        
+        # Parallele Ausführung mit maximal 5 gleichzeitigen Requests
+        coords = [(lat, lon) for lat in lats for lon in lons]
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(fetch_temperature, lat, lon) for lat, lon in coords]
+            
+            for future in as_completed(futures):
+                lat, lon, temp = future.result()
+                if temp is not None:
+                    punkt_daten.append([lat, lon, temp])
+                    
+                    if abs(lat - lat0) < resolution_km / 222 and abs(lon - lon0) < resolution_km / 170:
+                        ref_temp = temp
+                
                 count += 1
-                progress.progress(min(count / total_points, 1.0), text="🔄 Temperaturdaten werden geladen...")
+                progress.progress(min(count / total_points, 1.0), 
+                               text=f"🔄 Temperaturdaten werden geladen... ({count}/{total_points})")
     
         progress.empty()
     
