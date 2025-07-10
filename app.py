@@ -65,17 +65,7 @@ def geocode_to_gdf_with_fallback(location_name):
     try:
         st.info("🔄 Fallback auf OSMnx...")
         gdf = ox.geocode_to_gdf(location_name)
-        # Auch hier kleineres Gebiet für erste zwei Analysen
-        bounds = gdf.total_bounds
-        center_lon = (bounds[0] + bounds[2]) / 2
-        center_lat = (bounds[1] + bounds[3]) / 2
-        offset = 0.008  # Gleicher Radius wie bei OpenCageData
-        polygon = Polygon([(center_lon - offset, center_lat - offset), 
-                         (center_lon + offset, center_lat - offset), 
-                         (center_lon + offset, center_lat + offset), 
-                         (center_lon - offset, center_lat + offset)])
-        gdf = gpd.GeoDataFrame({'geometry': [polygon], 'name': [location_name]}, crs='EPSG:4326')
-        st.info("✅ OSMnx Fallback erfolgreich (800m Radius)")
+        st.info("✅ OSMnx Fallback erfolgreich")
         return gdf
     except Exception as e:
         st.error(f"❌ Beide Geocoding-Services fehlgeschlagen: {e}")
@@ -206,9 +196,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("1️⃣ Building Density (Red = dense)")
         
-        # SEHR ENGER Fokus - nur das tatsächlich analysierte Grid anzeigen
+        # KORRIGIERTER Fokus auf Grid-Bereich mit kleinerem Rand
         grid_bounds = grid.total_bounds
-        margin = 15  # Sehr kleiner Rand: nur 15m um das Grid
+        margin = 30  # Reduziert von 50 auf 30m für besseren Fokus
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
@@ -252,9 +242,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("2️⃣ Distance to Green Areas")
         
-        # SEHR ENGER Fokus - nur das tatsächlich analysierte Grid anzeigen  
+        # KORRIGIERTER Fokus auf Grid-Bereich mit kleinerem Rand
         grid_bounds = grid.total_bounds
-        margin = 15  # Sehr kleiner Rand: nur 15m um das Grid
+        margin = 30  # Reduziert von 50 auf 30m für besseren Fokus
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
