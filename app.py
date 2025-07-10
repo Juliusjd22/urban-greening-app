@@ -195,6 +195,12 @@ elif page == "🏠 Main App":
             buildings.plot(ax=ax, color="lightgrey", edgecolor="black", alpha=0.5)
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("1️⃣ Building Density (Red = dense)")
+        
+        # Fokus nur auf den relevanten Bereich (Grid-Bounds)
+        grid_bounds = grid.total_bounds
+        margin = 50  # 50m Rand
+        ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
+        ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
         plt.tight_layout()
         return fig
@@ -235,6 +241,12 @@ elif page == "🏠 Main App":
             greens.plot(ax=ax, color="green", alpha=0.5, edgecolor="darkgreen")
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("2️⃣ Distance to Green Areas")
+        
+        # Fokus nur auf den relevanten Bereich (Grid-Bounds)
+        grid_bounds = grid.total_bounds
+        margin = 50  # 50m Rand
+        ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
+        ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
         plt.tight_layout()
         return fig
@@ -511,8 +523,8 @@ elif page == "🏠 Main App":
             greens = greens.to_crs(utm_crs)
             greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
-        # Grid erstellen
-        cell_size = 50
+        # Grid erstellen - HÖHERE Auflösung
+        cell_size = 40  # Reduziert von 50 auf 40 für höhere Auflösung
         minx, miny, maxx, maxy = area.bounds
         grid_cells = [
             box(x, y, x + cell_size, y + cell_size)
