@@ -1,4 +1,15 @@
-import streamlit as st
+# Zusätzliche Legende als HTML
+        legend_html = '''
+        <div style="position: fixed; 
+                    top: 10px; right: 10px; width: 150px; height: 90px; 
+                    background-color: white; border:2px solid grey; z-index:9999; 
+                    font-size:12px; padding: 5px">
+        <p><b>Temperaturdifferenz</b></p>
+        <p><i class="fa fa-circle" style="color:red"></i> Wärmer (+)</p>
+        <p><i class="fa fa-circle" style="color:blue"></i> Kühler (-)</p>
+        </div>
+        '''
+        m.get_root().html.add_child(folium.Element(legend_html))import streamlit as st
 import geopandas as gpd
 import numpy as np
 import osmnx as ox
@@ -327,21 +338,61 @@ elif page == "🏠 Main App":
             for lat, lon, temp in punkt_daten
         ]
     
-        # Verbesserte Heatmap mit MEHR Datenpunkten
+        # Verbesserte Heatmap mit SEPARATEN Farben für positive/negative Differenzen
         m = folium.Map(location=[lat0, lon0], zoom_start=13, tiles="CartoDB positron")
-        HeatMap(
-            [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte],
-            radius=22,  # Größerer Radius für bessere Sichtbarkeit
-            blur=20,    # Optimierter Blur
-            max_zoom=13,
-            gradient={0.0: "green", 0.3: "lightyellow", 0.6: "orange", 1.0: "red"}
-        ).add_to(m)
+        
+        # Separate Heatmaps für positive und negative Temperaturdifferenzen
+        positive_diffs = [[lat, lon, diff] for lat, lon, diff in differenzpunkte if diff > 0]
+        negative_diffs = [[lat, lon, abs(diff)] for lat, lon, diff in differenzpunkte if diff < 0]
+        neutral_diffs = [[lat, lon, 0.1] for lat, lon, diff in differenzpunkte if diff == 0]
+        
+        # Rote Heatmap für POSITIVE Differenzen (wärmer)
+        if positive_diffs:
+            HeatMap(
+                positive_diffs,
+                radius=22,
+                blur=20,
+                max_zoom=13,
+                gradient={0.0: "rgba(255,255,0,0.1)", 0.5: "rgba(255,165,0,0.6)", 1.0: "rgba(255,0,0,0.8)"}  # Gelb zu Rot
+            ).add_to(m)
+        
+        # Blaue Heatmap für NEGATIVE Differenzen (kühler)  
+        if negative_diffs:
+            HeatMap(
+                negative_diffs,
+                radius=22,
+                blur=20,
+                max_zoom=13,
+                gradient={0.0: "rgba(173,216,230,0.1)", 0.5: "rgba(100,149,237,0.6)", 1.0: "rgba(0,0,255,0.8)"}  # Hellblau zu Blau
+            ).add_to(m)
     
+        # Verbesserte Marker mit Farbkodierung
         for lat, lon, diff in differenzpunkte:
+            if diff > 0.5:
+                color = "red"
+                icon_color = "white"
+            elif diff < -0.5:
+                color = "blue" 
+                icon_color = "white"
+            elif diff > 0:
+                color = "orange"
+                icon_color = "black"
+            elif diff < 0:
+                color = "lightblue"
+                icon_color = "black"
+            else:
+                color = "gray"
+                icon_color = "black"
+                
             sign = "+" if diff > 0 else ("−" if diff < 0 else "±")
-            folium.Marker(
+            folium.CircleMarker(
                 [lat, lon],
-                icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
+                radius=8,
+                popup=f"{sign}{abs(diff):.1f}°C",
+                color=color,
+                fillColor=color,
+                fillOpacity=0.7,
+                weight=2
             ).add_to(m)
     
         st.success(f"✅ {len(punkt_daten)} Temperaturpunkte geladen (OPTIMIERT: {radius_km}km Radius, {resolution_km}km Auflösung = ~{len(punkt_daten)} Messpunkte)!")
@@ -574,3 +625,4 @@ elif page == "🏠 Main App":
     
     # Call main function when on the main app page
     main()
+    
