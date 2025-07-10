@@ -59,7 +59,7 @@ elif page == "🔥 Heatmap – Info":
     st.title("🔥 Heatmap – Info")
     st.markdown("""
     **How it works:**
-    Daily maximum temperatures (e.g. from Open-Meteo) are collected in a grid. Differences from the central point show relative heating.
+    Daily maximum temperatures (from Open-Meteo) are collected in a grid. Differences from the central point show relative heating.
 
     **Why it's valuable:**
     It helps identify local hotspots and temperature variations within neighborhoods.
@@ -72,7 +72,7 @@ elif page == "🛰️ Satellite k-Means – Info":
     Satellite imagery (Sentinel-2) is clustered by brightness to assess reflectivity and infer potential for surface heating.
 
     **Note:**
-    This only works in areas with recent cloud-free satellite imagery – mainly large urban areas.
+    This only works in large urban areas.
     """)
 
 elif page == "🌱 What We Plan Next":
@@ -307,12 +307,13 @@ elif page == "🏠 Main App":
         return fig
     
     def main():
-        st.title("🌿 friGIS")
-
         st.markdown("""
             by Philippa, Samuel, Julius  
-            Hey, sehr cool, dass du unseren Prototypen nutzt. Dieser Prototyp soll zeigen, 
-            auf Basis welcher Daten wir ...
+            Take a look at our interactive prototype designed to demonstrate 
+            how environmental and geospatial data can be used to identify 
+            urban areas in need of greening interventions. It integrates 
+            multiple open-source datasets and satellite sources to analyze 
+            urban heat and greening potential at the neighborhood level.
         """)
 
         # Session State initialisieren
@@ -321,9 +322,7 @@ elif page == "🏠 Main App":
         if 'analysis_complete' not in st.session_state:
             st.session_state.analysis_complete = False
 
-        stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Munich, Germany")
-        
-        st.info("💡 **Tipp:** Verwende englische Bezeichnungen wie 'Munich, Germany' oder 'Berlin, Germany' für bessere Ergebnisse.")
+        stadtteil = st.text_input("🏙️ Stadtteilname eingeben", value="Maxvorstadt, München")
 
         # Button Logic mit Session State
         col1, col2 = st.columns([1, 1])
@@ -352,8 +351,7 @@ elif page == "🏠 Main App":
         try:
             gebiet = ox.geocode_to_gdf(stadtteil)
         except Exception as e:
-            st.error(f"📍 Gebiet konnte nicht gefunden werden: {e}")
-            st.error("💡 Versuche andere Schreibweisen wie 'Munich, Germany' oder 'Maxvorstadt Munich'")
+            st.error(f"📍 Gebiet konnte nicht geladen werden: {e}")
             st.session_state.analysis_started = False
             return
 
@@ -362,27 +360,16 @@ elif page == "🏠 Main App":
         gebiet = gebiet.to_crs(utm_crs)
         area = gebiet.geometry.iloc[0].buffer(0)
 
-        # Gebäudedaten laden mit Fehlerbehandlung
         tags_buildings = {"building": True}
-        try:
-            buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
-            buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
-        except Exception as e:
-            st.warning(f"⚠️ Keine Gebäudedaten gefunden: {e}")
-            buildings = gpd.GeoDataFrame(columns=['geometry'], crs=utm_crs)
-
-        # Grünflächendaten laden mit Fehlerbehandlung
         tags_green = {
             "leisure": ["park", "garden"],
             "landuse": ["grass", "meadow", "forest"],
             "natural": ["wood", "tree_row", "scrub"]
         }
-        try:
-            greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
-            greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
-        except Exception as e:
-            st.warning(f"⚠️ Keine Grünflächendaten gefunden: {e}")
-            greens = gpd.GeoDataFrame(columns=['geometry'], crs=utm_crs)
+        buildings = ox.features_from_polygon(polygon, tags=tags_buildings).to_crs(utm_crs)
+        greens = ox.features_from_polygon(polygon, tags=tags_green).to_crs(utm_crs)
+        buildings = buildings[buildings.geometry.is_valid & ~buildings.geometry.is_empty]
+        greens = greens[greens.geometry.is_valid & ~greens.geometry.is_empty]
 
         cell_size = 50
         minx, miny, maxx, maxy = area.bounds
@@ -394,20 +381,13 @@ elif page == "🏠 Main App":
         ]
         grid = gpd.GeoDataFrame({'geometry': grid_cells}, crs=utm_crs)
 
-        # Nur ausführen wenn Daten vorhanden sind
-        if not buildings.empty:
-            st.subheader("Gebäudedichte")
-            fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
-            st.pyplot(fig1)
-        else:
-            st.info("ℹ️ Keine Gebäudedaten verfügbar - Gebäudedichte-Analyse wird übersprungen")
+        st.subheader("Gebäudedichte")
+        fig1 = gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet)
+        st.pyplot(fig1)
 
-        if not greens.empty:
-            st.subheader("Distanz zu Grünflächen")
-            fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
-            st.pyplot(fig2)
-        else:
-            st.info("ℹ️ Keine Grünflächendaten verfügbar - Grünflächen-Analyse wird übersprungen")
+        st.subheader("Distanz zu Grünflächen")
+        fig2 = distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet)
+        st.pyplot(fig2)
 
         st.subheader("Temperaturdifferenz Heatmap")
         heatmap = heatmap_mit_temperaturdifferenzen(ort_name=stadtteil)
