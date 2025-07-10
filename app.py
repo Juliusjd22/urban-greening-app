@@ -84,53 +84,136 @@ def geocode_to_gdf_with_fallback(location_name):
 # Seitenleiste mit Navigation
 page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
     "🏠 Main App",
-    "🏗️ Building Density – Info",
-    "🌳 Distance to Green – Info",
-    "🔥 Heatmap – Info",
-    "🛰️ Satellite k-Means – Info",
+    "📊 Analysis Methods Info",
     "🌱 Urban Greening Plan",
     "🚀 What We Plan Next",
     "🐞 Report a Bug"
 ])
 
-if page == "🏗️ Building Density – Info":
-    st.title("🏗️ Building Density – Info")
-    st.markdown("""
-    **How it works:**
-    Building footprints from OpenStreetMap are used to calculate the ratio of built area per cell.
+if page == "📊 Analysis Methods Info":
+    st.title("📊 friGIS Analysis Methods")
+    st.markdown("Comprehensive overview of all analytical methods used in our urban heat analysis platform")
     
-    **Why it's useful:**
-    High building density often correlates with heat accumulation in cities. This metric helps identify particularly heat-stressed urban zones.
-    """)
-
-elif page == "🌳 Distance to Green – Info":
-    st.title("🌳 Distance to Green – Info")
-    st.markdown("""
-    **How it works:**
-    We calculate the distance from each urban grid cell to the nearest green space.
-
-    **Why it's important:**
-    Proximity to green areas directly influences local cooling and microclimates. Areas far from green are heat-prone.
-    """)
-
-elif page == "🔥 Heatmap – Info":
-    st.title("🔥 Heatmap – Info")
-    st.markdown("""
-    **How it works:**
-    Daily maximum temperatures (from Open-Meteo) are collected in a grid. Differences from the central point show relative heating.
-
-    **Why it's valuable:**
-    It helps identify local hotspots and temperature variations within neighborhoods.
-    """)
-
-elif page == "🛰️ Satellite k-Means – Info":
-    st.title("🛰️ Satellite k-Means – Info")
-    st.markdown("""
-    **How it works:**
-    Satellite imagery (Sentinel-2) is clustered by brightness to assess reflectivity and infer potential for surface heating.
-
-    **Note:**
-    This only works in large urban areas.
+    # Tabs für die verschiedenen Methoden
+    tab1, tab2, tab3, tab4 = st.tabs(["🏗️ Building Density", "🌳 Distance to Green", "🔥 Temperature Heatmap", "🛰️ Satellite k-Means"])
+    
+    with tab1:
+        st.header("🏗️ Building Density Analysis")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.markdown("""
+            **How it works:**
+            Building footprints from OpenStreetMap are used to calculate the ratio of built area per cell in our analysis grid.
+            
+            **Technical Details:**
+            - Grid cell size: 40m × 40m for high resolution
+            - Data source: OpenStreetMap building polygons
+            - Calculation: Building area ÷ Cell area = Building ratio
+            - Color coding: Red indicates high density (heat accumulation zones)
+            
+            **Why it's useful:**
+            High building density often correlates with heat accumulation in cities. This metric helps identify particularly heat-stressed urban zones that would benefit most from greening interventions.
+            """)
+        with col2:
+            st.info("""
+            **Key Insights:**
+            - Red areas = High heat risk
+            - Urban canyons trap heat
+            - Guides tree placement priorities
+            - Identifies cooling needs
+            """)
+    
+    with tab2:
+        st.header("🌳 Distance to Green Spaces")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.markdown("""
+            **How it works:**
+            We calculate the distance from each urban grid cell centroid to the nearest green space (parks, gardens, forests).
+            
+            **Technical Details:**
+            - Green space data: OpenStreetMap (leisure=park, landuse=forest, etc.)
+            - Distance calculation: Euclidean distance to nearest green polygon
+            - Maximum distance: 500m (beyond this, cooling effect is minimal)
+            - Color coding: Red = far from green, Green = close to nature
+            
+            **Why it's important:**
+            Proximity to green areas directly influences local cooling and microclimates. Areas far from green spaces are more heat-prone and should be prioritized for new tree plantings.
+            """)
+        with col2:
+            st.info("""
+            **Key Insights:**
+            - <100m = Excellent cooling
+            - 100-300m = Moderate cooling  
+            - >300m = Heat island risk
+            - Guides intervention zones
+            """)
+    
+    with tab3:
+        st.header("🔥 Temperature Heatmap Analysis")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.markdown("""
+            **How it works:**
+            Historical temperature data (Open-Meteo API) is collected across a grid of points. Temperature differences from the central reference point show relative heating patterns.
+            
+            **Technical Details:**
+            - Data source: Open-Meteo historical weather archive
+            - Time period: Summer months (June-August) for maximum heat stress
+            - Grid resolution: 0.7km spacing for detailed coverage
+            - Reference: Central point temperature as baseline
+            - Visualization: Folium heatmap with temperature difference markers
+            
+            **Why it's valuable:**
+            Real temperature data helps identify actual hotspots and temperature variations within neighborhoods, validating where cooling interventions are most needed.
+            """)
+        with col2:
+            st.info("""
+            **Key Insights:**
+            - Red zones = Hotspots (+1-3°C)
+            - Blue zones = Cool spots
+            - Validates heat island effects
+            - Quantifies intervention impact
+            """)
+    
+    with tab4:
+        st.header("🛰️ Satellite k-Means Clustering")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.markdown("""
+            **How it works:**
+            Sentinel-2 satellite imagery is analyzed using k-Means clustering to group pixels by brightness/reflectivity, which correlates with surface heating potential.
+            
+            **Technical Details:**
+            - Data source: Microsoft Planetary Computer (Sentinel-2 L2A)
+            - Resolution: 5m per pixel for detailed surface analysis
+            - Spectral bands: RGB (B04, B03, B02) for visible light analysis
+            - Clustering: 5 brightness categories from dark (heat-absorbing) to bright (heat-reflecting)
+            - Coverage area: 1.5km radius for comprehensive analysis
+            
+            **Scientific basis:**
+            Dark surfaces (asphalt, dark roofs) absorb heat, while bright surfaces (vegetation, light materials) reflect heat. This analysis identifies which areas have the highest heating potential.
+            """)
+        with col2:
+            st.info("""
+            **Key Insights:**
+            - Dark clusters = High heat absorption
+            - Bright clusters = Heat reflection
+            - Identifies material types
+            - Validates surface interventions
+            """)
+    
+    # Zusammenfassung
+    st.header("🔬 Integrated Analysis Approach")
+    st.success("""
+    **Why combine all four methods?**
+    
+    ✅ **Building Density** shows structural heat trapping  
+    ✅ **Distance to Green** reveals cooling deficit zones  
+    ✅ **Temperature Data** provides real-world validation  
+    ✅ **Satellite Analysis** identifies surface material impacts  
+    
+    Together, these create a comprehensive picture of urban heat patterns and optimal intervention strategies.
     """)
 
 elif page == "🌱 Urban Greening Plan":
