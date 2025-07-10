@@ -664,230 +664,259 @@ elif page == "🌱 Urban Greening Plan":
         st.caption("📚 **Scientific Basis:** Bavaria LWG Veitshöchheim 'Urban Green 2021+', Munich Climate Function Map 2022, EU Air Quality Directive 2008/50/EC")
 
 elif page == "🚀 What We Plan Next":
-    st.title("🌱 Spezifischer Begrünungsplan: Landsberger Straße, München")
-    st.caption("Wissenschaftlich fundierte Empfehlungen für die hochbelastete Hauptverkehrsachse zwischen Hauptbahnhof und Westend")
+    st.title("🚀 What We Plan Next")
+    st.caption("Our vision for comprehensive urban cooling solutions and data-driven monitoring")
     
-    # Standortanalyse
-    st.header("1. Standortspezifische Analyse: Landsberger Straße")
+    # Vision Overview
+    st.header("🌍 Our Vision for Scalable Urban Cooling")
+    st.markdown("""
+    We're building the next generation of urban climate analysis tools that go far beyond our current prototype. 
+    Our goal is to create customized cooling strategies for any location worldwide, integrating multiple 
+    technologies and providing real-time monitoring capabilities.
+    """)
+    
+    # Expanded Greening Plans
+    st.header("1. 🌱 Universal Greening Plans")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("📍 Lagecharakteristik")
+        st.subheader("📍 Location-Specific Customization")
         st.markdown("""
-        - **Lage:** Hauptausfallstraße vom Münchner Hauptbahnhof durch Schwanthalerhöhe/Westend
-        - **Länge:** 6,5 km, verkehrlich hochfrequentiert (Teil der B2 ab Trappentreustraße)
-        - **Umgebung:** Augustiner-Brauerei, Central Tower, ehem. Hauptzollamt, ICE-Halle
-        - **Verkehrsaufkommen:** >30.000 Kfz/Tag, Straßenbahn Linie 19, hohe Abgasbelastung
+        **Global Coverage:**
+        - Generate tailored greening recommendations for any city or neighborhood worldwide
+        - Adapt plant selections based on local climate, soil conditions, and regulations
+        - Account for regional precipitation patterns, temperature ranges, and seasonal variations
+        
+        **Flexible Area Types:**
+        - Streets and transportation corridors
+        - Public squares and pedestrian zones
+        - Commercial districts and business areas
+        - Residential neighborhoods
+        - Industrial zones requiring specialized approaches
+        - School grounds and educational institutions
         """)
     
     with col2:
-        st.subheader("🌡️ Klimatische Herausforderungen")
+        st.subheader("⚙️ Advanced Customization Options")
         st.markdown("""
-        - **NO₂-Belastung:** Überschreitung der 40 µg/m³ Grenzwerte an Hauptverkehrsstraßen
-        - **Überwärmung:** Starke Aufheizung durch Asphalt und dichte Bebauung
-        - **Windverhältnisse:** Hauptwind aus West-Südwest - ideale Belüftungsrichtung
-        - **Bodenqualität:** Verdichtete, salzbelastete Böden durch Winterdienst
+        **User-Defined Parameters:**
+        - Budget constraints and funding sources
+        - Maintenance capacity and long-term care
+        - Aesthetic preferences and community input
+        - Traffic patterns and pedestrian flow
+        - Underground infrastructure limitations
+        - Local wildlife and biodiversity goals
+        
+        **Integration with Urban Planning:**
+        - Coordination with existing city development plans
+        - Compliance with local environmental regulations
+        - Integration with smart city infrastructure
         """)
     
-    # Wissenschaftlich begründete Baumauswahl
-    st.header("2. Wissenschaftlich fundierte Baumarten-Empfehlungen")
-    st.info("💡 **Auswahlkriterien:** Basierend auf Bayern LWG 'Stadtgrün 2021+' Forschung und München-spezifischen Klimadaten")
+    # Multi-Technology Approach
+    st.header("2. 🏗️ Beyond Greening: Comprehensive Cooling Technologies")
+    
+    st.info("💡 **Holistic Approach:** Our future cooling plans will integrate multiple proven technologies for maximum impact")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.subheader("🌳 Tilia cordata 'Rancho'")
-        st.caption("(Kleinblättrige Linde - Bewährte Sorte)")
-        with st.container():
-            st.markdown("""
-            **Wissenschaftliche Begründung:**
-            - ✅ **Bewährt in München:** Bereits erfolgreich in der Maxvorstadt etabliert
-            - ✅ **NO₂-Filter:** Nachgewiesene Luftreinigungsleistung von 27 kg/Jahr pro Baum
-            - ✅ **Kühlleistung:** Bis zu 400 kWh Kühlungsäquivalent durch Transpiration
-            - ✅ **Salztoleranz:** Moderate Resistenz gegen Winterstreusalz
-            
-            **Spezifisch für Landsberger Straße:**
-            Perfekt für Abschnitte mit breiteren Gehwegen (>3m). Hohe Biomasseproduktion für maximale CO₂-Speicherung.
-            """)
-    
-    with col2:
-        st.subheader("🌳 Gleditsia triacanthos 'Skyline'")
-        st.caption("(Dornenlose Honiglocke)")
-        with st.container():
-            st.markdown("""
-            **Wissenschaftliche Begründung:**
-            - ✅ **Extremstandort-tolerant:** Verträgt Hitze bis 42°C und Trockenperioden >8 Wochen
-            - ✅ **Schmale Krone:** Ideal für beengte Verhältnisse der Landsberger Straße
-            - ✅ **Geringe Laubmenge:** Reduziert Reinigungsaufwand bei hohem Verkehrsaufkommen
-            - ✅ **Stickstoff-Fixierung:** Verbessert allmählich die Bodenqualität
-            
-            **Spezifisch für Landsberger Straße:**
-            Optimal für enge Bereiche zwischen Augustiner-Brauerei und Hauptzollamt. Übersteht Baustellenstaub.
-            """)
-    
-    with col3:
-        st.subheader("🌳 Quercus cerris")
-        st.caption("(Zerr-Eiche - Zukunftsbaum)")
-        with st.container():
-            st.markdown("""
-            **Wissenschaftliche Begründung:**
-            - ✅ **Klimawandel-resistent:** Bayern LWG Testsieger für Stadtklima 2071-2100
-            - ✅ **Hohe Luftreinigung:** 48 kg Schadstoffe/Jahr bei Vollgröße
-            - ✅ **Biodiversität:** Lebensraum für 200+ Insektenarten
-            - ✅ **Langlebigkeit:** 150+ Jahre Standzeit bei optimaler Pflege
-            
-            **Spezifisch für Landsberger Straße:**
-            Zukunftsinvestition für Bereiche mit ausreichend Platz. Wird steigende Temperaturen problemlos überstehen.
-            """)
-    
-    # Unterpflanzung wissenschaftlich begründet
-    st.header("3. Klimaangepasste Unterpflanzung")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.subheader("🌿 Stachys byzantina")
-        st.caption("(Woll-Ziest)")
+        st.subheader("🛣️ Advanced Surface Materials")
         st.markdown("""
-        **Warum hier:** Silbrige Blätter reflektieren Hitze, extrem trockenheitstolerant. 
-        Bewährt an münchner Straßenstandorten.
+        **Cool Pavements:**
+        - Light-colored asphalt with high solar reflectance
+        - Permeable concrete for stormwater management
+        - Phase-change materials for temperature regulation
+        
+        **Reflective Coatings:**
+        - Cool roof technologies and materials
+        - Highly reflective street markings
+        - Solar-reflective sidewalk treatments
         """)
     
     with col2:
-        st.subheader("🌿 Sedum spurium")
-        st.caption("(Kaukasus-Fetthenne)")
+        st.subheader("🏢 Building Envelope Solutions")
         st.markdown("""
-        **Warum hier:** Sukkulente Eigenschaften, speichert Regenwasser. 
-        Verträgt Salz und Abgase ausgezeichnet.
+        **Facade Technologies:**
+        - Cool wall paints and coatings
+        - Green facades and living walls
+        - Shading systems and architectural features
+        
+        **Integrated Systems:**
+        - Building-integrated photovoltaics with cooling
+        - Natural ventilation enhancement
+        - Thermal mass optimization
         """)
     
     with col3:
-        st.subheader("🌿 Festuca gautieri")
-        st.caption("(Bärenfell-Schwingel)")
+        st.subheader("💧 Water-Based Cooling")
         st.markdown("""
-        **Warum hier:** Immergrün, kompakt, tritt-resistent. 
-        Ideal für hochfrequentierte Fußgängerbereiche.
+        **Active Cooling:**
+        - Misting systems for public spaces
+        - Water features and fountains
+        - Evaporative cooling installations
+        
+        **Passive Solutions:**
+        - Bioswales and rain gardens
+        - Constructed wetlands
+        - Integrated stormwater management
         """)
     
-    # Umsetzungsplan
-    st.header("4. 🚀 Konkreter Handlungsplan")
-    
-    st.subheader("Phase 1: Vorbereitung (Monate 1-2)")
-    st.markdown("""
-    **1.1 Genehmigungen einholen:**
-    - 📞 **Baureferat München:** Tel. 089/233-60001 (Straßenbegrünung)
-    - 📞 **Referat für Klima- und Umweltschutz:** Tel. 089/233-47878 (Förderanträge)
-    - 📋 **Erforderlich:** Straßenbaumkataster-Eintrag, Leitungsauskunft, Verkehrssicherheit
-    
-    **1.2 Fördermittel beantragen:**
-    - 💰 **München:** Bis zu 50% Förderung für Straßenbegrünung
-    - 💰 **Bayern:** KLIMAWIN-Programm für CO₂-Reduktion
-    - 💰 **Bund:** Förderrichtlinie Stadtnatur 2030
-    """)
-    
-    st.subheader("Phase 2: Planung & Partner (Monate 2-3)")
-    
-    # Lokale Unternehmen mit Links
-    st.markdown("**🏢 Empfohlene Münchner Fachunternehmen:**")
+    # Advanced Monitoring & Data Collection
+    st.header("3. 📊 Precision Monitoring & Data Analytics")
     
     col1, col2 = st.columns(2)
+    
     with col1:
+        st.subheader("🔬 Real-Time Environmental Monitoring")
         st.markdown("""
-        **Große Projekte (>50 Bäume):**
-        - **[GZIMI GmbH](https://gzimi.de/)** - Spezialist für Großprojekte, Teil der idverde Gruppe
-        - **[Badruk Gartengestaltung](https://www.badruk.de/)** - Familienbetrieb seit 1989, eigene Baumschule
-        - **[Verde Gartenbau München](https://www.verde-gartenbau.de/)** - Meisterbetrieb, Stadtbegrünung
+        **Proprietary Sensor Networks:**
+        - High-precision temperature and humidity sensors
+        - Air quality monitoring (PM2.5, NO₂, O₃)
+        - Solar radiation and UV index measurement
+        - Wind speed and direction tracking
+        - Soil moisture and plant health indicators
+        
+        **IoT Integration:**
+        - Wireless sensor networks with long battery life
+        - Real-time data transmission to cloud platforms
+        - Edge computing for immediate local analysis
+        - Integration with existing city sensor infrastructure
         """)
     
     with col2:
+        st.subheader("📈 Advanced Analytics & Modeling")
         st.markdown("""
-        **Beratung & Planung:**
-        - **[Green City e.V. - Begrünungsbüro](https://www.greencity.de/projekt/begruenungsbuero/)** - Kostenlose Erstberatung
-        - **Bayerische Architektenkammer** - Zertifizierte Landschaftsarchitekten
-        - **Verband Garten-, Landschafts- und Sportplatzbau Bayern e.V.** - Qualifizierte Ausführung
+        **Quantitative Impact Assessment:**
+        - Precise cooling effectiveness calculations (°C reduction)
+        - Energy savings quantification for nearby buildings
+        - Air quality improvement measurements
+        - Carbon sequestration and emission reduction tracking
+        
+        **Predictive Modeling:**
+        - Machine learning for optimal intervention timing
+        - Climate change adaptation scenario planning
+        - Long-term performance forecasting
+        - Cost-benefit analysis automation
         """)
     
-    st.subheader("Phase 3: Umsetzung (Monate 4-12)")
-    st.markdown("""
-    **3.1 Optimaler Pflanztermin:** Oktober-November (nach Augustiner Oktoberfest-Verkehr)
-    
-    **3.2 Spezielle Anforderungen Landsberger Straße:**
-    - 🚧 **Verkehrsführung:** Abstimmung mit MVG (Tram 19) und Polizei
-    - 🌱 **Substrat:** Strukturboden mit 40% Grobanteil für Verdichtungsresistenz  
-    - 💧 **Bewässerung:** Mindestens 3 Jahre Anwachsgarantie bei Trockenheit
-    - 🛡️ **Schutz:** Verstärkte Stammschutzmanschetten gegen Vandalismus
-    """)
-    
-    # Impact-Berechnung
-    st.header("5. 📊 Kalkulierte Auswirkungen für die Landsberger Straße")
+    # Implementation Timeline
+    st.header("4. 🗓️ Development Roadmap")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric(
-            label="🌱 CO₂-Reduktion/Jahr", 
-            value="24-40 Tonnen",
-            help="Bei 100 Bäumen verschiedener Arten, basierend auf LWG Bayern-Daten"
-        )
-        st.metric(
-            label="💨 NO₂-Filterung",
-            value="2.7 Tonnen/Jahr", 
-            help="Besonders relevant für die hochbelastete Landsberger Straße"
-        )
+        st.subheader("📅 Phase 1: 2025")
+        st.markdown("""
+        **Platform Expansion:**
+        - Global location database integration
+        - Multi-technology recommendation engine
+        - Advanced customization interface
+        - Beta testing with select cities
+        
+        **Initial Partnerships:**
+        - Pilot projects in 3-5 cities
+        - Collaboration with urban planning firms
+        - Integration with municipal databases
+        """)
     
     with col2:
-        st.metric(
-            label="❄️ Kühlleistung",
-            value="40 MWh/Jahr",
-            help="Entspricht 15% Energieeinsparung für angrenzende Gebäude"
-        )
-        st.metric(
-            label="💧 Regenwasser-Retention",
-            value="80.000 L/Jahr",
-            help="Entlastung der Kanalisation bei Starkregenereignissen"
-        )
+        st.subheader("📅 Phase 2: 2026")
+        st.markdown("""
+        **Technology Integration:**
+        - Material science database expansion
+        - Cost-optimization algorithms
+        - Real-time monitoring system deployment
+        - Mobile app for citizen engagement
+        
+        **Scale-Up:**
+        - 20+ city implementations
+        - Industry partnerships
+        - Academic research collaborations
+        """)
     
     with col3:
-        st.metric(
-            label="🏠 Immobilienwert-Steigerung",
-            value="4-7%",
-            help="Durchschnittlich für Objekte in 100m Nähe zu Straßenbäumen"
-        )
-        st.metric(
-            label="💰 ROI-Zeitraum",
-            value="6-9 Jahre",
-            help="Amortisation durch Energie-/Gesundheitskosten-Einsparungen"
-        )
+        st.subheader("📅 Phase 3: 2027+")
+        st.markdown("""
+        **Full Platform Launch:**
+        - Global availability and localization
+        - AI-powered optimization
+        - Comprehensive impact tracking
+        - Policy recommendation tools
+        
+        **Long-term Vision:**
+        - Integration with climate adaptation strategies
+        - Support for international climate goals
+        - Open-source components for research
+        """)
     
-    # Erfolgskontrolle
-    st.header("6. 📈 Monitoring & Erfolgskontrolle")
+    # Partnerships & Collaboration
+    st.header("5. 🤝 Strategic Partnerships & Advisory Network")
+    
     st.success("""
-    **Empfohlene Messungen:**
-    ✅ **Luftqualität:** NO₂-Passivsammler vor/nach Pflanzung  
-    ✅ **Mikroklima:** Temperatur-Logger in 1m und 3m Höhe  
-    ✅ **Biodiversität:** Insektenzählungen Mai-September  
-    ✅ **Baumgesundheit:** Jährliches Vitalitäts-Assessment  
-    ✅ **Bürgerzufriedenheit:** Umfragen zu Aufenthaltsqualität
+    **Current Collaborations:**
+    We are actively engaged with leading cities and innovative companies to ensure our solutions 
+    meet real-world needs and can be effectively implemented at scale.
     """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🏛️ Municipal Partnerships")
+        st.markdown("""
+        **City Collaboration Areas:**
+        - Urban planning and climate adaptation strategies
+        - Data sharing and integration protocols  
+        - Regulatory compliance and permitting processes
+        - Budget planning and funding mechanisms
+        - Community engagement and public acceptance
+        - Long-term maintenance and monitoring programs
+        
+        **Knowledge Exchange:**
+        - Best practices sharing across cities
+        - Standardized impact measurement protocols
+        - Policy framework development
+        """)
+    
+    with col2:
+        st.subheader("🏢 Industry Advisory Board")
+        st.markdown("""
+        **Corporate Expertise:**
+        - Technology providers and material manufacturers
+        - Construction and landscaping industry leaders
+        - Environmental consulting firms
+        - Smart city technology companies
+        - Climate data and analytics providers
+        - Sustainability certification organizations
+        
+        **Innovation Pipeline:**
+        - Emerging technology evaluation
+        - Market viability assessment
+        - Implementation feasibility studies
+        """)
+    
+    # Call to Action
+    st.header("6. 📞 Get Involved")
     
     st.info("""
-    💡 **Besonderheit Landsberger Straße:** Als Teil der historischen Verbindung zum Hauptbahnhof 
-    und wichtige ÖPNV-Achse ist diese Begrünung ein Leuchtturmprojekt für nachhaltige Mobilität 
-    in München. Die wissenschaftliche Dokumentation kann als Blaupause für andere Hauptverkehrsstraßen dienen.
+    **🌟 Interested in Collaboration?**
+    
+    Whether you're representing a city government, environmental organization, technology company, 
+    or research institution, we welcome partnerships that can help accelerate urban cooling solutions.
+    
+    **Contact us:** julius.dickmann@muenchen.enactus.team
+    
+    **Areas of Interest:**
+    - Pilot city partnerships for testing and validation
+    - Technology integration and sensor deployment
+    - Research collaborations and data sharing
+    - Funding and investment opportunities
+    - Policy development and regulatory frameworks
     """)
     
     st.markdown("---")
-    st.caption("📚 **Wissenschaftliche Grundlagen:** Bayern LWG Veitshöchheim 'Stadtgrün 2021+', München Klimafunktionskarte 2022, EU-Luftqualitätsrichtlinie 2008/50/EG")
-
-elif page == "🚀 What We Plan Next":
-    st.title("🌱 What's Next")
-    st.markdown("""
-    **Tailored Greening Plans:**
-    Based on the data, we aim to generate custom recommendations for tree planting, rooftop/vertical greening, etc. per location.
-
-    **Monitoring:**
-    We plan to integrate sensors or satellite data to track cooling impacts over time.
-    """)
+    st.caption("🌱 **Mission:** Democratizing access to science-based urban cooling solutions for cities worldwide, 
+              contributing to global climate resilience and improved quality of life for urban populations.")
 
 elif page == "🐞 Report a Bug":
     st.title("🐞 Report a Bug or Issue")
