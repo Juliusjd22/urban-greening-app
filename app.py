@@ -57,17 +57,20 @@ def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
 
 def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_dist=500):
     progress = st.progress(0, text="🌳 Entfernung zu Grünflächen wird berechnet...")
-    greens_union = greens.unary_union
+    
+    if greens.empty:
+        st.warning("⚠️ Keine Grünflächen gefunden.")
+        return None
+
+    greens_union = greens.geometry.union_all()
     total = len(grid)
-    dists = []
 
     for i, geom in enumerate(grid.geometry):
-        dist = greens_union.distance(geom.centroid) if not greens.is_empty else np.nan
-        dists.append(dist)
+        dist = greens_union.distance(geom.centroid)
+        grid.at[i, "dist_to_green"] = dist
         if i % max(1, total // 10) == 0:
             progress.progress(i / total, text="🌳 Entfernung zu Grünflächen wird berechnet...")
 
-    grid["dist_to_green"] = dists
     grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
 
     progress.progress(1.0, text="🌳 Entfernung zu Grünflächen fertig berechnet.")
