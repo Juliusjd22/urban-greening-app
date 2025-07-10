@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import requests
 from requests.adapters import HTTPAdapter, Retry
-from geopy.geocoders import Nominatim
+from opencage.geocoder import OpenCageGeocode
 from folium.plugins import HeatMap
 import folium
 from sklearn.cluster import KMeans
@@ -23,6 +23,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
 session.mount('https://', HTTPAdapter(max_retries=retries))
+
+# OpenCageData API Key
+OPENCAGE_API_KEY = "bb1eb77da8504268a285bc3a82daa835"
 
 # Seitenleiste mit Navigation
 page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
@@ -152,18 +155,18 @@ elif page == "🏠 Main App":
         return fig
 
     def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
-        geolocator = Nominatim(user_agent="hitze-check")
+        geocoder = OpenCageGeocode(OPENCAGE_API_KEY)
         try:
-            location = geolocator.geocode(ort_name, timeout=10)
+            results = geocoder.geocode(ort_name)
         except Exception as e:
             st.error(f"🌍 Geokodierung fehlgeschlagen: {e}")
             return None
 
-        if not location:
+        if not results:
             st.warning("❗ Ort konnte nicht gefunden werden.")
             return None
     
-        lat0, lon0 = location.latitude, location.longitude
+        lat0, lon0 = results[0]['geometry']['lat'], results[0]['geometry']['lng']
         lats = np.arange(lat0 - radius_km / 111, lat0 + radius_km / 111 + 1e-6, resolution_km / 111)
         lons = np.arange(lon0 - radius_km / 85, lon0 + radius_km / 85 + 1e-6, resolution_km / 85)
     
