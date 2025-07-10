@@ -30,12 +30,16 @@ def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
 
     intersecting_geometries = buildings.sindex
     total = len(grid)
+    ratios = []
     for i, cell in enumerate(grid.geometry):
         possible = list(intersecting_geometries.intersection(cell.bounds))
         intersecting = buildings.iloc[possible][buildings.iloc[possible].intersects(cell)]
-        grid.at[i, "building_ratio"] = intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
+        ratio = intersecting.intersection(cell).area.sum() / cell.area if not intersecting.empty else 0
+        ratios.append(ratio)
         if i % max(1, total // 10) == 0:
             progress.progress(i / total, text="🏗️ Gebäudedichte wird berechnet...")
+
+    grid["building_ratio"] = ratios
 
     progress.progress(1.0, text="🏗️ Gebäudedichte fertig berechnet.")
     progress.empty()
@@ -55,13 +59,15 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     progress = st.progress(0, text="🌳 Entfernung zu Grünflächen wird berechnet...")
     greens_union = greens.unary_union
     total = len(grid)
+    dists = []
 
     for i, geom in enumerate(grid.geometry):
         dist = greens_union.distance(geom.centroid) if not greens.is_empty else np.nan
-        grid.at[i, "dist_to_green"] = dist
+        dists.append(dist)
         if i % max(1, total // 10) == 0:
             progress.progress(i / total, text="🌳 Entfernung zu Grünflächen wird berechnet...")
 
+    grid["dist_to_green"] = dists
     grid["score_distance_norm"] = np.clip(grid["dist_to_green"] / max_dist, 0, 1)
 
     progress.progress(1.0, text="🌳 Entfernung zu Grünflächen fertig berechnet.")
@@ -80,8 +86,6 @@ def distanz_zu_gruenflaechen_analysieren_und_plotten(grid, greens, gebiet, max_d
     ax.axis("equal")
     plt.tight_layout()
     return fig
-
-
 
 def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
     geolocator = Nominatim(user_agent="hitze-check")
