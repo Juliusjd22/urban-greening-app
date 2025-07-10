@@ -97,6 +97,12 @@ elif page == "🐞 Report a Bug":
     """)
 
 elif page == "🏠 Main App":
+    from PIL import Image
+    col1, col2 = st.columns([1, 6])
+    with col1:
+        st.image("logo.png", width=60)
+    with col2:
+        st.markdown("<h1 style='margin-bottom: 0;'>friGIS</h1>", unsafe_allow_html=True)
     def gebaeudedichte_analysieren_und_plotten(grid, buildings, gebiet):
         progress = st.progress(0, text="🏗️ Calculating building density...")
         intersecting_geometries = buildings.sindex
@@ -143,7 +149,6 @@ elif page == "🏠 Main App":
         ax.axis("equal")
         plt.tight_layout()
         return fig
-
     def heatmap_mit_temperaturdifferenzen(ort_name, jahr=2022, radius_km=1.5, resolution_km=1.0):
         geolocator = Nominatim(user_agent="hitze-check")
         try:
