@@ -65,7 +65,17 @@ def geocode_to_gdf_with_fallback(location_name):
     try:
         st.info("🔄 Fallback auf OSMnx...")
         gdf = ox.geocode_to_gdf(location_name)
-        st.info("✅ OSMnx Fallback erfolgreich")
+        # Auch hier kleineres Gebiet für erste zwei Analysen
+        bounds = gdf.total_bounds
+        center_lon = (bounds[0] + bounds[2]) / 2
+        center_lat = (bounds[1] + bounds[3]) / 2
+        offset = 0.008  # Gleicher Radius wie bei OpenCageData
+        polygon = Polygon([(center_lon - offset, center_lat - offset), 
+                         (center_lon + offset, center_lat - offset), 
+                         (center_lon + offset, center_lat + offset), 
+                         (center_lon - offset, center_lat + offset)])
+        gdf = gpd.GeoDataFrame({'geometry': [polygon], 'name': [location_name]}, crs='EPSG:4326')
+        st.info("✅ OSMnx Fallback erfolgreich (800m Radius)")
         return gdf
     except Exception as e:
         st.error(f"❌ Beide Geocoding-Services fehlgeschlagen: {e}")
@@ -78,7 +88,8 @@ page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
     "🌳 Distance to Green – Info",
     "🔥 Heatmap – Info",
     "🛰️ Satellite k-Means – Info",
-    "🌱 What We Plan Next",
+    "🌱 Urban Greening Plan",
+    "🚀 What We Plan Next",
     "🐞 Report a Bug"
 ])
 
@@ -122,7 +133,138 @@ elif page == "🛰️ Satellite k-Means – Info":
     This only works in large urban areas.
     """)
 
-elif page == "🌱 What We Plan Next":
+elif page == "🌱 Urban Greening Plan":
+    st.title("🌱 Urban Greening Plan for Landsberger Straße, Munich")
+    
+    # Site Characteristics
+    st.header("1. Site Characteristics")
+    st.markdown("""
+    - **Climate:** Temperate with increasingly hot summers and frequent heatwaves.
+    - **Soil:** Often compacted, gravel-based subsoil with poor water retention near roadsides.
+    - **Urban Challenges:** Heavy traffic, narrow planting strips, high heat stress, air pollution, salt exposure in winter.
+    - **Urgency:** Landsberger Straße is highly impervious, overheated in summer, and lacks adequate vegetation. Greening is urgent to reduce health risks and urban heat island effects.
+    """)
+    
+    # Selected Street Trees
+    st.header("2. Selected Street Trees")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.subheader("🌳 Gleditsia triacanthos 'Skyline'")
+        st.caption("(Honey Locust)")
+        with st.container():
+            st.markdown("""
+            **Reason:** Extremely tolerant of drought, urban pollution, and compacted soils.
+            
+            **Benefits:** Light, airy canopy allows sunlight through; minimal leaf litter; visually elegant.
+            
+            **Use:** Ideal for narrow planting strips along busy roads with full sun exposure.
+            """)
+    
+    with col2:
+        st.subheader("🌳 Tilia cordata 'Greenspire'")
+        st.caption("(Small-Leaved Linden)")
+        with st.container():
+            st.markdown("""
+            **Reason:** Native species with good adaptation to central European urban conditions.
+            
+            **Benefits:** Provides deep shade and excellent cooling; important nectar source for pollinators.
+            
+            **Use:** Suitable for sections with more space and a desire to support biodiversity.
+            """)
+    
+    with col3:
+        st.subheader("🌳 Paulownia tomentosa")
+        st.caption("(Empress Tree)")
+        with st.container():
+            st.markdown("""
+            **Reason:** Extremely fast-growing and capable of sequestering large amounts of CO₂.
+            
+            **Benefits:** Large leaves provide significant shading and cooling; striking purple flowers enhance streetscape aesthetics.
+            
+            **Use:** Best for wider sidewalk zones or plazas where space allows for rapid canopy expansion.
+            """)
+    
+    # Underplanting Options
+    st.header("3. Underplanting Options")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🌿 Geranium macrorrhizum")
+        st.caption("(Bigroot Geranium)")
+        with st.container():
+            st.markdown("""
+            **Reason:** Robust perennial for dry shade or sun, very low maintenance.
+            
+            **Benefits:** Suppresses weeds, improves soil, aromatic leaves deter pests.
+            
+            **Use:** Perfect groundcover under trees or in traffic islands.
+            """)
+    
+    with col2:
+        st.subheader("🌿 Nepeta faassenii")
+        st.caption("(Catmint)")
+        with st.container():
+            st.markdown("""
+            **Reason:** Highly drought-tolerant and aromatic; attracts pollinators.
+            
+            **Benefits:** Long blooming period, easy to maintain, visually softens hard surfaces.
+            
+            **Use:** Edging plant near sidewalks or around trees in sunny areas.
+            """)
+    
+    # Additional Strategies
+    st.header("4. Additional Strategies")
+    st.markdown("""
+    - **Tree pits:** Minimum 8 m² open area with structural soil and biochar amendment.
+    - **Sensor integration:** Soil moisture monitoring to guide watering efficiency.
+    - **Community:** Engage local residents via tree adoption programs for care and watering.
+    - **Facades:** Use climbing plants like *Parthenocissus tricuspidata* on building walls where feasible.
+    """)
+    
+    # Estimated Impact
+    st.header("5. Estimated Impact of the Greening Plan")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric(
+            label="🌱 CO₂ Sequestration",
+            value="12-20 tonnes/year",
+            help="For every 100 mature trees, depending on species and growth conditions"
+        )
+        st.metric(
+            label="❄️ Cooling Energy Savings", 
+            value="10-15%",
+            help="Reduction of building cooling costs in shaded zones"
+        )
+    
+    with col2:
+        st.metric(
+            label="🏠 Property Value Increase",
+            value="3-8%",
+            help="Enhanced aesthetics, comfort, and reduced heat stress"
+        )
+        st.metric(
+            label="💰 Investment Payback",
+            value="5-7 years",
+            help="Through energy savings, stormwater management, and property value gains"
+        )
+    
+    st.header("6. Health & Environmental Benefits")
+    st.success("""
+    ✅ **Reduced air pollution**  
+    ✅ **Better walkability and comfort**  
+    ✅ **Mental health improvement**  
+    ✅ **Urban heat island mitigation**  
+    ✅ **Enhanced biodiversity and pollinator support**
+    """)
+    
+    st.info("💡 **Recommendation:** This greening plan specifically targets high-impact interventions for urban heat reduction, combining fast-growing shade trees with low-maintenance ground cover for maximum cooling efficiency.")
+
+elif page == "🚀 What We Plan Next":
     st.title("🌱 What's Next")
     st.markdown("""
     **Tailored Greening Plans:**
@@ -196,9 +338,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("1️⃣ Building Density (Red = dense)")
         
-        # KORRIGIERTER Fokus auf Grid-Bereich mit kleinerem Rand
+        # SEHR ENGER Fokus - nur das tatsächlich analysierte Grid anzeigen
         grid_bounds = grid.total_bounds
-        margin = 30  # Reduziert von 50 auf 30m für besseren Fokus
+        margin = 15  # Sehr kleiner Rand: nur 15m um das Grid
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
@@ -242,9 +384,9 @@ elif page == "🏠 Main App":
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
         ax.set_title("2️⃣ Distance to Green Areas")
         
-        # KORRIGIERTER Fokus auf Grid-Bereich mit kleinerem Rand
+        # SEHR ENGER Fokus - nur das tatsächlich analysierte Grid anzeigen  
         grid_bounds = grid.total_bounds
-        margin = 30  # Reduziert von 50 auf 30m für besseren Fokus
+        margin = 15  # Sehr kleiner Rand: nur 15m um das Grid
         ax.set_xlim(grid_bounds[0] - margin, grid_bounds[2] + margin)
         ax.set_ylim(grid_bounds[1] - margin, grid_bounds[3] + margin)
         ax.axis("equal")
