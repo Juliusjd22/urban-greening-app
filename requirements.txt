@@ -13,3 +13,4 @@ stackstac
 planetary-computer
 rasterio
 dask
+opencage
