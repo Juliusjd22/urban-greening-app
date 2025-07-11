@@ -1115,7 +1115,6 @@ elif page == "🏠 Main App":
     
     def main():
         st.markdown("""
-            by Philippa, Samuel, Julius  
             Take a look at our interactive prototype designed to demonstrate 
             how environmental and geospatial data can be used to identify 
             urban areas in need of greening interventions. It integrates 
