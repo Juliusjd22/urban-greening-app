@@ -1241,7 +1241,7 @@ elif page == "🏠 Main App":
         st.session_state.analysis_complete = True
         st.success("✅ Analysis completed! You can now start a new analysis.")
         st.markdown("""by Philippa Kaltenbach, Samuel Wischermann, Julius Dickmann 
-        Enactus München e.V.""")
-    
+        \nfriGIS\nEnactus München e.V.""")
+
     # Call main function when on the main app page
     main()
