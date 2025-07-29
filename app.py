@@ -88,7 +88,7 @@ def geocode_to_gdf_with_fallback(location_name):
         return None
 
 # Seitenleiste mit Navigation
-page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
+page = st.sidebar.radio("Select Analysis or Info Page", [
     "Main App",
     "Analysis Methods Info",
     "Urban Greening Plan",
@@ -96,8 +96,8 @@ page = st.sidebar.radio("🔍 Select Analysis or Info Page", [
     "Report a Bug"
 ])
 
-if page == "📊 Analysis Methods Info":
-    st.title("📊 friGIS Analysis Methods")
+if page == "Analysis Methods Info":
+    st.title("friGIS Analysis Methods")
     st.markdown("Comprehensive overview of all analytical methods used in our urban heat analysis platform")
     
     # Tabs für die verschiedenen Methoden
@@ -183,7 +183,7 @@ if page == "📊 Analysis Methods Info":
             """)
     
     with tab4:
-        st.header("🛰️ Satellite k-Means Clustering")
+        st.header("Satellite k-Means Clustering")
         col1, col2 = st.columns([2, 1])
         with col1:
             st.markdown("""
@@ -210,14 +210,14 @@ if page == "📊 Analysis Methods Info":
             """)
     
     # Zusammenfassung
-    st.header("🔬 Integrated Analysis Approach")
+    st.header("Integrated Analysis Approach")
     st.success("""
     **Why combine all four methods?**
     
-    ✅ **Building Density** shows structural heat trapping  
-    ✅ **Distance to Green** reveals cooling deficit zones  
-    ✅ **Temperature Data** provides real-world validation  
-    ✅ **Satellite Analysis** identifies surface material impacts  
+    **Building Density** shows structural heat trapping  
+    **Distance to Green** reveals cooling deficit zones  
+    **Temperature Data** provides real-world validation  
+    **Satellite Analysis** identifies surface material impacts  
     
     Together, these create a comprehensive picture of urban heat patterns and optimal intervention strategies.
     """)
@@ -226,10 +226,10 @@ elif page == "Urban Greening Plan":
     # Sprachauswahl oben
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
-        if st.button("🇩🇪 Deutsch", type="secondary"):
+        if st.button("Deutsch", type="secondary"):
             st.session_state.greening_language = "de"
     with col2:
-        if st.button("🇬🇧 English", type="secondary"):
+        if st.button("English", type="secondary"):
             st.session_state.greening_language = "en"
     
     # Standardsprache setzen falls nicht vorhanden
@@ -265,7 +265,7 @@ elif page == "Urban Greening Plan":
         
         # Wissenschaftlich begründete Baumauswahl
         st.header("2. Wissenschaftlich fundierte Baumarten-Empfehlungen")
-        st.info("**Auswahlkriterien:** Basierend auf Bayern LWG 'Stadtgrün 2021+' Forschung und München-spezifischen Klimadaten")
+        st.info("Auswahlkriterien: Basierend auf Bayern LWG 'Stadtgrün 2021+' Forschung und München-spezifischen Klimadaten")
         
         col1, col2, col3 = st.columns(3)
         
@@ -275,40 +275,40 @@ elif page == "Urban Greening Plan":
             with st.container():
                 st.markdown("""
                 **Wissenschaftliche Begründung:**
-                - ✅ **Bewährt in München:** Bereits erfolgreich in der Maxvorstadt etabliert
-                - ✅ **NO₂-Filter:** Nachgewiesene Luftreinigungsleistung von 27 kg/Jahr pro Baum
-                - ✅ **Kühlleistung:** Bis zu 400 kWh Kühlungsäquivalent durch Transpiration
-                - ✅ **Salztoleranz:** Moderate Resistenz gegen Winterstreusalz
+                - **Bewährt in München:** Bereits erfolgreich in der Maxvorstadt etabliert
+                - **NO₂-Filter:** Nachgewiesene Luftreinigungsleistung von 27 kg/Jahr pro Baum
+                - **Kühlleistung:** Bis zu 400 kWh Kühlungsäquivalent durch Transpiration
+                - **Salztoleranz:** Moderate Resistenz gegen Winterstreusalz
                 
                 **Spezifisch für Landsberger Straße:**
                 Perfekt für Abschnitte mit breiteren Gehwegen (>3m). Hohe Biomasseproduktion für maximale CO₂-Speicherung.
                 """)
         
         with col2:
-            st.subheader("🌳 Gleditsia triacanthos 'Skyline'")
+            st.subheader("Gleditsia triacanthos 'Skyline'")
             st.caption("(Dornenlose Honiglocke)")
             with st.container():
                 st.markdown("""
                 **Wissenschaftliche Begründung:**
-                - ✅ **Extremstandort-tolerant:** Verträgt Hitze bis 42°C und Trockenperioden >8 Wochen
-                - ✅ **Schmale Krone:** Ideal für beengte Verhältnisse der Landsberger Straße
-                - ✅ **Geringe Laubmenge:** Reduziert Reinigungsaufwand bei hohem Verkehrsaufkommen
-                - ✅ **Stickstoff-Fixierung:** Verbessert allmählich die Bodenqualität
+                - **Extremstandort-tolerant:** Verträgt Hitze bis 42°C und Trockenperioden >8 Wochen
+                - **Schmale Krone:** Ideal für beengte Verhältnisse der Landsberger Straße
+                - **Geringe Laubmenge:** Reduziert Reinigungsaufwand bei hohem Verkehrsaufkommen
+                - **Stickstoff-Fixierung:** Verbessert allmählich die Bodenqualität
                 
                 **Spezifisch für Landsberger Straße:**
                 Optimal für enge Bereiche zwischen Augustiner-Brauerei und Hauptzollamt. Übersteht Baustellenstaub.
                 """)
         
         with col3:
-            st.subheader("🌳 Quercus cerris")
+            st.subheader("Quercus cerris")
             st.caption("(Zerr-Eiche - Zukunftsbaum)")
             with st.container():
                 st.markdown("""
                 **Wissenschaftliche Begründung:**
-                - ✅ **Klimawandel-resistent:** Bayern LWG Testsieger für Stadtklima 2071-2100
-                - ✅ **Hohe Luftreinigung:** 48 kg Schadstoffe/Jahr bei Vollgröße
-                - ✅ **Biodiversität:** Lebensraum für 200+ Insektenarten
-                - ✅ **Langlebigkeit:** 150+ Jahre Standzeit bei optimaler Pflege
+                - **Klimawandel-resistent:** Bayern LWG Testsieger für Stadtklima 2071-2100
+                - **Hohe Luftreinigung:** 48 kg Schadstoffe/Jahr bei Vollgröße
+                - **Biodiversität:** Lebensraum für 200+ Insektenarten
+                - **Langlebigkeit:** 150+ Jahre Standzeit bei optimaler Pflege
                 
                 **Spezifisch für Landsberger Straße:**
                 Zukunftsinvestition für Bereiche mit ausreichend Platz. Wird steigende Temperaturen problemlos überstehen.
@@ -349,9 +349,9 @@ elif page == "Urban Greening Plan":
         st.subheader("Phase 1: Vorbereitung (Monate 1-2)")
         st.markdown("""
         **1.1 Genehmigungen einholen:**
-        - 📞 **Baureferat München:** Tel. 089/233-60001 (Straßenbegrünung)
-        - 📞 **Referat für Klima- und Umweltschutz:** Tel. 089/233-47878 (Förderanträge)
-        - 📋 **Erforderlich:** Straßenbaumkataster-Eintrag, Leitungsauskunft, Verkehrssicherheit
+        - **Baureferat München:** Tel. 089/233-60001 (Straßenbegrünung)
+        - **Referat für Klima- und Umweltschutz:** Tel. 089/233-47878 (Förderanträge)
+        - **Erforderlich:** Straßenbaumkataster-Eintrag, Leitungsauskunft, Verkehrssicherheit
         
         **1.2 Fördermittel beantragen:**
         - **München:** Bis zu 50% Förderung für Straßenbegrünung
@@ -362,7 +362,7 @@ elif page == "Urban Greening Plan":
         st.subheader("Phase 2: Planung & Partner (Monate 2-3)")
         
         # Lokale Unternehmen mit Links
-        st.markdown("**🏢 Empfohlene Münchner Fachunternehmen:**")
+        st.markdown("**Empfohlene Münchner Fachunternehmen:**")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -437,21 +437,21 @@ elif page == "Urban Greening Plan":
         st.header("6. Monitoring & Erfolgskontrolle")
         st.success("""
         **Empfohlene Messungen:**
-        ✅ **Luftqualität:** NO₂-Passivsammler vor/nach Pflanzung  
-        ✅ **Mikroklima:** Temperatur-Logger in 1m und 3m Höhe  
-        ✅ **Biodiversität:** Insektenzählungen Mai-September  
-        ✅ **Baumgesundheit:** Jährliches Vitalitäts-Assessment  
-        ✅ **Bürgerzufriedenheit:** Umfragen zu Aufenthaltsqualität
+        **Luftqualität:** NO₂-Passivsammler vor/nach Pflanzung  
+        **Mikroklima:** Temperatur-Logger in 1m und 3m Höhe  
+        **Biodiversität:** Insektenzählungen Mai-September  
+        **Baumgesundheit:** Jährliches Vitalitäts-Assessment  
+        **Bürgerzufriedenheit:** Umfragen zu Aufenthaltsqualität
         """)
         
         st.info("""
-        💡 **Besonderheit Landsberger Straße:** Als Teil der historischen Verbindung zum Hauptbahnhof 
+        **Besonderheit Landsberger Straße:** Als Teil der historischen Verbindung zum Hauptbahnhof 
         und wichtige ÖPNV-Achse ist diese Begrünung ein Leuchtturmprojekt für nachhaltige Mobilität 
         in München. Die wissenschaftliche Dokumentation kann als Blaupause für andere Hauptverkehrsstraßen dienen.
         """)
         
         st.markdown("---")
-        st.caption("**Wissenschaftliche Grundlagen:** Bayern LWG Veitshöchheim 'Stadtgrün 2021+', München Klimafunktionskarte 2022, EU-Luftqualitätsrichtlinie 2008/50/EG")
+        st.caption("Wissenschaftliche Grundlagen: Bayern LWG Veitshöchheim 'Stadtgrün 2021+', München Klimafunktionskarte 2022, EU-Luftqualitätsrichtlinie 2008/50/EG")
 
     # Englische Version
     else:
@@ -482,8 +482,8 @@ elif page == "Urban Greening Plan":
         
         # Science-based tree selection
         st.header("2. Science-Based Tree Species Recommendations")
-        st.info("**Selection Criteria:** Based on Bavaria LWG 'Urban Green 2021+' research and Munich-specific climate data")
-    
+        st.info("Selection Criteria: Based on Bavaria LWG 'Urban Green 2021+' research and Munich-specific climate data")
+        
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -492,10 +492,10 @@ elif page == "Urban Greening Plan":
             with st.container():
                 st.markdown("""
                 **Scientific Rationale:**
-                - ✅ **Proven in Munich:** Successfully established in Maxvorstadt district
-                - ✅ **NO₂ Filter:** Proven air cleaning performance of 27 kg/year per tree
-                - ✅ **Cooling Power:** Up to 400 kWh cooling equivalent through transpiration
-                - ✅ **Salt Tolerance:** Moderate resistance to winter road salt
+                - **Proven in Munich:** Successfully established in Maxvorstadt district
+                - **NO₂ Filter:** Proven air cleaning performance of 27 kg/year per tree
+                - **Cooling Power:** Up to 400 kWh cooling equivalent through transpiration
+                - **Salt Tolerance:** Moderate resistance to winter road salt
                 
                 **Specific to Landsberger Straße:**
                 Perfect for sections with wider sidewalks (>3m). High biomass production for maximum CO₂ storage.
@@ -507,10 +507,10 @@ elif page == "Urban Greening Plan":
             with st.container():
                 st.markdown("""
                 **Scientific Rationale:**
-                - ✅ **Extreme Site Tolerant:** Withstands heat up to 42°C and drought periods >8 weeks
-                - ✅ **Narrow Crown:** Ideal for confined conditions of Landsberger Straße
-                - ✅ **Low Leaf Litter:** Reduces maintenance burden with high traffic volume
-                - ✅ **Nitrogen Fixation:** Gradually improves soil quality
+                - **Extreme Site Tolerant:** Withstands heat up to 42°C and drought periods >8 weeks
+                - **Narrow Crown:** Ideal for confined conditions of Landsberger Straße
+                - **Low Leaf Litter:** Reduces maintenance burden with high traffic volume
+                - **Nitrogen Fixation:** Gradually improves soil quality
                 
                 **Specific to Landsberger Straße:**
                 Optimal for tight spaces between Augustiner Brewery and Main Customs Office. Survives construction dust.
@@ -522,10 +522,10 @@ elif page == "Urban Greening Plan":
             with st.container():
                 st.markdown("""
                 **Scientific Rationale:**
-                - ✅ **Climate Change Resistant:** Bavaria LWG test winner for urban climate 2071-2100
-                - ✅ **High Air Purification:** 48 kg pollutants/year at full size
-                - ✅ **Biodiversity:** Habitat for 200+ insect species
-                - ✅ **Longevity:** 150+ years lifespan with optimal care
+                - **Climate Change Resistant:** Bavaria LWG test winner for urban climate 2071-2100
+                - **High Air Purification:** 48 kg pollutants/year at full size
+                - **Biodiversity:** Habitat for 200+ insect species
+                - **Longevity:** 150+ years lifespan with optimal care
                 
                 **Specific to Landsberger Straße:**
                 Future investment for areas with sufficient space. Will easily handle rising temperatures.
@@ -566,9 +566,9 @@ elif page == "Urban Greening Plan":
         st.subheader("Phase 1: Preparation (Months 1-2)")
         st.markdown("""
         **1.1 Obtain Permits:**
-        - 📞 **Munich Building Department:** Tel. 089/233-60001 (Street greening)
-        - 📞 **Climate & Environmental Protection Department:** Tel. 089/233-47878 (Funding applications)
-        - 📋 **Required:** Street tree registry entry, utility clearance, traffic safety approval
+        - **Munich Building Department:** Tel. 089/233-60001 (Street greening)
+        - **Climate & Environmental Protection Department:** Tel. 089/233-47878 (Funding applications)
+        - **Required:** Street tree registry entry, utility clearance, traffic safety approval
         
         **1.2 Apply for Funding:**
         - **Munich:** Up to 50% funding for street greening
@@ -578,7 +578,7 @@ elif page == "Urban Greening Plan":
         
         st.subheader("Phase 2: Planning & Partners (Months 2-3)")
         
-        st.markdown("**🏢 Recommended Munich Specialist Companies:**")
+        st.markdown("**Recommended Munich Specialist Companies:**")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -620,7 +620,7 @@ elif page == "Urban Greening Plan":
                 help="For 100 trees of various species, based on LWG Bavaria data"
             )
             st.metric(
-                label=" NO₂ Filtering",
+                label="NO₂ Filtering",
                 value="2.7 tonnes/year", 
                 help="Particularly relevant for the heavily polluted Landsberger Straße"
             )
@@ -653,11 +653,11 @@ elif page == "Urban Greening Plan":
         st.header("6. Monitoring & Success Control")
         st.success("""
         **Recommended Measurements:**
-        ✅ **Air Quality:** NO₂ passive samplers before/after planting  
-        ✅ **Microclimate:** Temperature loggers at 1m and 3m height  
-        ✅ **Biodiversity:** Insect counts May-September  
-        ✅ **Tree Health:** Annual vitality assessment  
-        ✅ **Citizen Satisfaction:** Surveys on quality of stay
+        **Air Quality:** NO₂ passive samplers before/after planting  
+        **Microclimate:** Temperature loggers at 1m and 3m height  
+        **Biodiversity:** Insect counts May-September  
+        **Tree Health:** Annual vitality assessment  
+        **Citizen Satisfaction:** Surveys on quality of stay
         """)
         
         st.info("""
@@ -667,7 +667,7 @@ elif page == "Urban Greening Plan":
         """)
         
         st.markdown("---")
-        st.caption("**Scientific Basis:** Bavaria LWG Veitshöchheim 'Urban Green 2021+', Munich Climate Function Map 2022, EU Air Quality Directive 2008/50/EC")
+        st.caption("Scientific Basis: Bavaria LWG Veitshöchheim 'Urban Green 2021+', Munich Climate Function Map 2022, EU Air Quality Directive 2008/50/EC")
 
 elif page == "What We Plan Next":
     st.title("What We Plan Next")
@@ -722,7 +722,7 @@ elif page == "What We Plan Next":
     # Multi-Technology Approach
     st.header("2. Beyond Greening: Comprehensive Cooling Technologies")
     
-    st.info("**Holistic Approach:** Our future cooling plans will integrate multiple proven technologies for maximum impact")
+    st.info("Holistic Approach: Our future cooling plans will integrate multiple proven technologies for maximum impact")
     
     col1, col2, col3 = st.columns(3)
     
@@ -812,7 +812,7 @@ elif page == "Report a Bug":
     st.markdown("""
     We've had some server issues in recent days.
     
-    👉 If something doesn't work or crashes, please send a short message to:
+    If something doesn't work or crashes, please send a short message to:
     **julius.dickmann@muenchen.enactus.team**
     
     Thank you!
@@ -848,7 +848,7 @@ elif page == "Main App":
             st.warning("No building data available - using default values")
             grid["building_ratio"] = 0.1  # Standardwert
         else:
-            progress = st.progress(0, text="🏗️ Calculating building density...")
+            progress = st.progress(0, text="Calculating building density...")
             intersecting_geometries = buildings.sindex
             total = len(grid)
             for i, cell in enumerate(grid.geometry):
@@ -869,7 +869,7 @@ elif page == "Main App":
         if not buildings.empty:
             buildings.plot(ax=ax, color="lightgrey", edgecolor="black", alpha=0.5)
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
-        ax.set_title("1️⃣ Building Density (Red = dense)")
+        ax.set_title("1 Building Density (Red = dense)")
         
         # SEHR ENGER Fokus - nur das tatsächlich analysierte Grid anzeigen
         grid_bounds = grid.total_bounds
@@ -915,7 +915,7 @@ elif page == "Main App":
         if not greens.empty:
             greens.plot(ax=ax, color="green", alpha=0.5, edgecolor="darkgreen")
         gebiet.boundary.plot(ax=ax, color="blue", linewidth=1.5)
-        ax.set_title("2️⃣ Distance to Green Areas")
+        ax.set_title("2 Distance to Green Areas")
         
         # SEHR ENGER Fokus - nur das tatsächlich analysierte Grid anzeigen  
         grid_bounds = grid.total_bounds
@@ -936,7 +936,7 @@ elif page == "Main App":
             return None
 
         if not results:
-            st.warning("❗ Location could not be found.")
+            st.warning("Location could not be found.")
             return None
     
         lat0, lon0 = results[0]['geometry']['lat'], results[0]['geometry']['lng']
@@ -946,7 +946,7 @@ elif page == "Main App":
         punkt_daten = []
         ref_temp = None
         total_points = len(lats) * len(lons)
-        progress = st.progress(0, text=f"🔄 Loading temperature data... ({total_points} points)")
+        progress = st.progress(0, text=f"Loading temperature data... ({total_points} points)")
         count = 0
         
         def fetch_temperature(lat, lon):
@@ -985,17 +985,17 @@ elif page == "Main App":
                 
                 count += 1
                 progress.progress(min(count / total_points, 1.0), 
-                               text=f"🔄 Loading temperature data... ({count}/{total_points})")
+                               text=f"Loading temperature data... ({count}/{total_points})")
     
         progress.empty()
     
         if not punkt_daten:
-            st.warning("⚠️ Not enough temperature data available.")
+            st.warning("Not enough temperature data available.")
             return None
             
         if ref_temp is None:
             ref_temp = np.mean([temp for _, _, temp in punkt_daten])
-            st.info("ℹ️ Reference temperature estimated")
+            st.info("Reference temperature estimated")
     
         differenzpunkte = [
             [lat, lon, round(temp - ref_temp, 2)]
@@ -1019,16 +1019,16 @@ elif page == "Main App":
                 icon=folium.DivIcon(html=f"<div style='font-size:10pt; color:black'><b>{sign}{abs(diff):.2f}°C</b></div>")
             ).add_to(m)
     
-        st.success(f"✅ {len(punkt_daten)} temperature points loaded (OPTIMIZED: {radius_km}km radius, {resolution_km}km resolution = ~{len(punkt_daten)} measurement points)!")
+        st.success(f"{len(punkt_daten)} temperature points loaded (OPTIMIZED: {radius_km}km radius, {resolution_km}km resolution = ~{len(punkt_daten)} measurement points)!")
         return m
     
     def analysiere_reflektivitaet_graustufen(stadtteil_name, n_clusters=5, year_range="2020-01-01/2024-12-31"):
         try:
-            progress = st.progress(0, text="🔍 Satellitendaten werden gesucht...")
+            progress = st.progress(0, text="Satellitendaten werden gesucht...")
             
             gebiet = geocode_to_gdf_with_fallback(stadtteil_name)
             if gebiet is None:
-                st.warning("❌ Gebiet konnte nicht gefunden werden.")
+                st.warning("Gebiet konnte nicht gefunden werden.")
                 progress.empty()
                 return None
             
@@ -1045,7 +1045,7 @@ elif page == "Main App":
             ])
             large_gebiet = gpd.GeoDataFrame({'geometry': [large_polygon]}, crs='EPSG:4326')
             bbox = large_gebiet.total_bounds
-            progress.progress(0.1, text="🔍 Suche nach Sentinel-2 Daten...")
+            progress.progress(0.1, text="Suche nach Sentinel-2 Daten...")
         
             catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
             search = catalog.search(
@@ -1056,13 +1056,13 @@ elif page == "Main App":
             )
             items = list(search.get_items())
             if not items:
-                st.warning("❌ Kein geeignetes Sentinel-2 Bild gefunden.")
+                st.warning("Kein geeignetes Sentinel-2 Bild gefunden.")
                 progress.empty()
                 return None
         
             item = planetary_computer.sign(items[0])
             utm_crs = gebiet.estimate_utm_crs().to_epsg()
-            progress.progress(0.4, text="🛰️ Bilddaten werden geladen...")
+            progress.progress(0.4, text="Bilddaten werden geladen...")
         
             # VIEL bessere Auflösung für k-Means
             stack = stackstac.stack(
@@ -1078,7 +1078,7 @@ elif page == "Main App":
         
             h, w, _ = rgb_scaled.shape
             pixels = rgb_scaled.reshape(-1, 3)
-            progress.progress(0.7, text="🔢 k-Means Clustering wird durchgeführt...")
+            progress.progress(0.7, text="k-Means Clustering wird durchgeführt...")
             kmeans = KMeans(n_clusters=n_clusters, random_state=42).fit(pixels)
             labels = kmeans.labels_
         
@@ -1140,14 +1140,14 @@ elif page == "Main App":
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            if st.button("🔍 Start Analysis", disabled=st.session_state.analysis_started):
+            if st.button("Start Analysis", disabled=st.session_state.analysis_started):
                 if stadtteil:
                     st.session_state.analysis_started = True
                     st.session_state.analysis_complete = False
 
         with col2:
             if st.session_state.analysis_complete:
-                if st.button("🔄 New Analysis"):
+                if st.button("New Analysis"):
                     st.session_state.analysis_started = False
                     st.session_state.analysis_complete = False
                     st.rerun()
@@ -1158,12 +1158,12 @@ elif page == "Main App":
 
         # Status anzeigen
         if not st.session_state.analysis_complete:
-            st.info("🔄 Analysis running...")
+            st.info("Analysis running...")
 
         try:
             gebiet = geocode_to_gdf_with_fallback(stadtteil)
             if gebiet is None:
-                st.error("📍 Area could not be found.")
+                st.error("Area could not be found.")
                 st.session_state.analysis_started = False
                 return
                 
@@ -1185,7 +1185,7 @@ elif page == "Main App":
             "natural": ["wood", "tree_row", "scrub"]
         }
         
-        st.info("📡 Loading OSM data...")
+        st.info("Loading OSM data...")
         buildings = load_osm_data_with_retry(polygon, tags_buildings)
         greens = load_osm_data_with_retry(polygon, tags_green)
         
@@ -1244,7 +1244,7 @@ elif page == "Main App":
 
         # At the end of analysis
         st.session_state.analysis_complete = True
-        st.success("✅ Analysis completed! You can now start a new analysis.")
+        st.success("Analysis completed! You can now start a new analysis.")
         st.markdown("""by Philippa Kaltenbach, Samuel Wischermann, Julius Dickmann 
         \nfriGIS\nEnactus München e.V.""")
 
