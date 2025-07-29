@@ -17,6 +17,15 @@ from pystac_client import Client
 from matplotlib.patches import Patch
 import time
 import warnings
+from dotenv import load_dotenv
+import os
+
+# .env-Datei laden
+load_dotenv()
+
+# API-Key aus Umgebungsvariable lesen
+OPENCAGE_API_KEY = os.getenv("OPENCAGE_API_KEY")
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -24,9 +33,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
 session.mount('https://', HTTPAdapter(max_retries=retries))
-
-# OpenCageData API Key
-OPENCAGE_API_KEY = "bb1eb77da8504268a285bc3a82daa835"
 
 def geocode_to_gdf_with_fallback(location_name):
     """Geocodierung mit OpenCageData, Fallback auf OSMnx wenn nötig"""
